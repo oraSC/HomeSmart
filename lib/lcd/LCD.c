@@ -143,6 +143,44 @@ bool draw_pic(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo)
 
 }
 
+bool draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
+{
+	unsigned int *base = plcdinfo->base + y * plcdinfo->width + x;
+	
+	//画图片
+	
+	
+	int min_W = (plcdinfo->width  - x) < pjpginfo->width  ? plcdinfo->width -  x : pjpginfo->width;
+	int min_H = (plcdinfo->height - y) < pjpginfo->height ? plcdinfo->height - y : pjpginfo->height;
+	//printf("minW:%d, minH:%d",min_W,min_H);
+	for(int rows = 0; rows < min_H - 1; rows++)
+	{
+		
+		for(int cols = 0; cols < min_W - 1; cols++)
+		{
+			unsigned char *pR = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
+			unsigned char *pG = pR + 1;
+			unsigned char *pB = pR + 2;
+			if((*pR == ((0xFF<<0)&color)) && (*pG == ((0xFF<<8)&color)) && (*pB == ((0xFF<<16)&color)))
+			
+			{
+			memcpy(base + cols, pjpginfo->buff + rows * pjpginfo->rowsize  + cols * 3, 3 );
+			}
+			
+			//printf("%d\n",cols);	
+		}
+		//printf("base add%d\n", plcdinfo->width);	
+		base += plcdinfo->width;
+	
+	
+	}
+
+	/*
+	 *backlog:返回值未完善
+	 */
+
+}
+
 pBtnInfo_t draw_btn(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo)
 {
 	pBtnInfo_t pbtninfo = (BtnInfo_t *)malloc(sizeof(BtnInfo_t));
@@ -163,6 +201,29 @@ pBtnInfo_t draw_btn(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo)
 	
 	return pbtninfo;
 }
+
+pBtnInfo_t draw_btn_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
+{
+	pBtnInfo_t pbtninfo = (BtnInfo_t *)malloc(sizeof(BtnInfo_t));
+	if(pbtninfo == NULL)
+	{
+		perror("fail to malloc memory for pbtninfo");
+		return NULL;
+	
+	}
+	//初始化 pbtninfo
+	pbtninfo->X      = x;
+	pbtninfo->Y      = y;
+	pbtninfo->width  = pjpginfo->width;
+	pbtninfo->height = pjpginfo->height;
+	pbtninfo->next	 = NULL;
+
+	draw_pic_onlyAcolor(plcdinfo, x, y, pjpginfo, color);
+	
+	return pbtninfo;
+}
+
+
 
 bool if_btnclick(pBtnInfo_t pbtninfo, int x, int y)
 {
