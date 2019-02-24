@@ -38,7 +38,7 @@ typedef struct{
 }Rect_t, *pRect_t;
 
 pLcdInfo_t 	lcd_create(const char *path, pLcdInfo_t plcdinfo);
-bool     	lcd_destroy(pLcdInfo_t plcdinfo);
+int     	lcd_destroy(pLcdInfo_t plcdinfo);
 bool		draw_rect(pLcdInfo_t plcdinfo, int x, int y, pRect_t rect);
 bool		draw_pic(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo);
 pBtnInfo_t	draw_btn(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo);

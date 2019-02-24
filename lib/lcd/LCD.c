@@ -56,6 +56,30 @@ error:
 
 }
 
+
+int lcd_destroy(pLcdInfo_t plcdinfo)
+{
+	int ret;
+
+	//将映射空间释放
+	ret = munmap(plcdinfo->base, plcdinfo->size);
+	if(ret < 0)
+	{
+		perror("fail to munmap");
+		return -1;
+	}
+
+	//释放lcdinfo空间
+	free(plcdinfo);
+
+	return 0;
+}
+
+
+
+
+
+
 bool draw_rect(pLcdInfo_t plcdinfo, int x, int y,pRect_t prect) 
 {
 	//错误处理

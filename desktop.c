@@ -29,7 +29,7 @@ int main()
 {
 	int ret;
 
-	char app_icon_name[2][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg"};
+	char app_icon_name[3][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg", "./image/desktop/exit.jpg"};
 
 	//1.创建lcd
 	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
@@ -58,7 +58,7 @@ int main()
 
 	//**添加按键
 	JpgInfo_t app_jpginfo;
-	for(int i = 0; i < 2; i++)
+	for(int i = 0; i < 3; i++)
 	{
 		
 		decompress_jpg2buffer(&app_jpginfo, app_icon_name[i]);
@@ -89,23 +89,26 @@ int main()
 		if(ts_point.update == true)
 		{
 			app_num = find_which_btn_click(head, ts_point.X, ts_point.Y);
-			
+			if(app_num == 3)
+			{
+				break;
+			}
 			//**启动指定app
 			system(app[app_num - 1]);
 			
 			printf("%d app\n", app_num);
 			
 			ts_point.update = false;	
+		
 		}
-	
+		
+
 	
 	}
 
 
-	/*
-	 *backlog:销毁lcd
-	 */
-
+	//销毁lcd
+	ret = lcd_destroy(plcdinfo);
 
 	//释放背景图片资源
 	free(bg_pjpginfo->buff);
@@ -113,8 +116,8 @@ int main()
 	
 	//销毁链表
 	destroy_btn_sqlist(&head);
-
-
+	
+	printf("HomeSmart desktop exit\n");
 	return 0;
 
 }
