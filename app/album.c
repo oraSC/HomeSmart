@@ -54,18 +54,21 @@ int main()
 	//3.加载背景
 	draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 	
+	
+	//overview bg		
+	JpgInfo_t overviewBg_jpginfo;
+
+	decompress_jpg2buffer(&overviewBg_jpginfo, "../image/album/overview_bg.jpg");
+	draw_pic(plcdinfo, 600, 50, &overviewBg_jpginfo);
+
 
 	//*4.加载按键
 	//**创建链表头
 	pBtn_SqList_t head = create_btn_sqlist();
-
+	
 	//**添加按键
 	JpgInfo_t btn_jpginfo;
-	//overview bg		
-	decompress_jpg2buffer(&btn_jpginfo, "../image/album/overview_bg.jpg");
-	draw_pic(plcdinfo, 600, 50, &btn_jpginfo);
-	free(btn_jpginfo.buff);
-
+	
 	//***last按键
 	decompress_jpg2buffer(&btn_jpginfo, btn_name[0]);
 	pBtn_SqList_t last_node = draw_btn(plcdinfo, 600, 0, &btn_jpginfo);
@@ -168,14 +171,16 @@ int main()
 			resize_height = ratio * src_jpginfo[i].height / 100;
 		}
 		
-		printf("%d\t%d\n", resize_width, resize_height);
+		//printf("%d\t%d\n", resize_width, resize_height);
 		jpg_resize(src_jpginfo + i, overview_jpginfo + i, resize_width, resize_height);
-		printf("z\n");
+		//printf("z\n");
 	}
 	
-	
+		
 	//**默认第一张
 	int index = 0;
+	int last_index = TOTAL_PIC - 1;
+	int next_index = index + 1;
 	middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);	
 	while(1)
 	{
@@ -186,30 +191,53 @@ int main()
 			{	if(opt == 1)
 				{
 					index--;
+					last_index--;
+					next_index--;
 					if(index < 0)
 					{
 						index = TOTAL_PIC - 1;
 					}
+					if(last_index < 0)
+					{
+						last_index = TOTAL_PIC - 1;
+					}
+					if(next_index < 0)
+					{
+						next_index = TOTAL_PIC - 1;
+					}
+						
 
 				}	
 				else {
 					index ++;
+					last_index++;
+					next_index++;
 					if(index >= TOTAL_PIC)
 					{
 						index = 0;
 				
 					}	
+					if(last_index >= TOTAL_PIC)
+					{
+						last_index = 0;
+					}
+					if(next_index >= TOTAL_PIC)
+					{
+						next_index = 0;
+					}
 			
 				}
 				//draw_pic(plcdinfo, 0, 0, &album_jpginfo[index]);
+				//bg
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+				draw_pic(plcdinfo, 600, 50, &overviewBg_jpginfo);
 				//相册
 				middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);
 				//overview
 
-				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
-				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
-				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
+				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[last_index]);
+				middle_show(plcdinfo, 600, 190, 200, 100, &overview_jpginfo[index]);
+				middle_show(plcdinfo, 600, 330, 200, 100, &overview_jpginfo[next_index]);
 			}
 		
 			ts_point.update = false;

@@ -180,7 +180,12 @@ bool decompress_jpg2bmp(char *src_path, char *dst_path)
 
 int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height)
 {
-	
+
+	/*
+	 *bug:缩小具有越界的问题
+	 *
+	 */
+
 	//定义dst_pjpginfo
 	dst_pjpginfo->width = width;
 	dst_pjpginfo->height = height;
@@ -199,20 +204,19 @@ int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int 
 		perror("fail to malloc in jpg resize");
 		return -1;
 	}
-	
+	int last = 0;
 	for(int rows = 0; rows < height; rows++)
 	{
 		for(int cols = 0; cols < width; cols++)
 		{
+			last = rows*100/ratio_height*src_pjpginfo->width * 3 + cols*100/ratio_width*3;	
+			//printf("%d\n", last);
+			if(last < src_pjpginfo->rowsize * src_pjpginfo->height)
 			memcpy(dst_pjpginfo->buff + rows * dst_pjpginfo->rowsize + cols*3, src_pjpginfo->buff + rows*100/ratio_height*src_pjpginfo->width * 3 + cols*100/ratio_width*3, 3);
-		
-		
 		}
 	
 	
 	}
-
-
 
 
 }
