@@ -224,6 +224,24 @@ pBtnInfo_t draw_btn_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjp
 }
 
 
+int middle_show(pLcdInfo_t plcdinfo, int x, int y, int width, int height, pJpgInfo_t pjpginfo)
+{
+	int relative_x = (width - pjpginfo->width) / 2;
+	int relative_y = (height - pjpginfo->height) / 2;
+
+	draw_pic(plcdinfo, relative_x + x, relative_y + y, pjpginfo);
+
+
+
+
+
+
+}
+
+
+
+
+
 
 bool if_btnclick(pBtnInfo_t pbtninfo, int x, int y)
 {

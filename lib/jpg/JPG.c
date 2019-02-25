@@ -78,14 +78,6 @@ pJpgInfo_t decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *src_path)
 }
 
 
-
-
-
-
-
-
-
-
 bool decompress_jpg2bmp(char *src_path, char *dst_path)
 {
 
@@ -185,6 +177,48 @@ bool decompress_jpg2bmp(char *src_path, char *dst_path)
 
 	return 0;
 }
+
+int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height)
+{
+	
+	//定义dst_pjpginfo
+	dst_pjpginfo->width = width;
+	dst_pjpginfo->height = height;
+	dst_pjpginfo->rowsize = width * 3;
+	dst_pjpginfo->bicount = src_pjpginfo->bicount;
+
+
+	//计算比值
+	int ratio_width = 100 * width / src_pjpginfo->width;
+	int ratio_height = 100 * height / src_pjpginfo->height;
+
+	//申请空间
+	dst_pjpginfo->buff = malloc(width * height * 3);
+	if(dst_pjpginfo->buff == NULL)
+	{
+		perror("fail to malloc in jpg resize");
+		return -1;
+	}
+	
+	for(int rows = 0; rows < height; rows++)
+	{
+		for(int cols = 0; cols < width; cols++)
+		{
+			memcpy(dst_pjpginfo->buff + rows * dst_pjpginfo->rowsize + cols*3, src_pjpginfo->buff + rows*100/ratio_height*src_pjpginfo->width * 3 + cols*100/ratio_width*3, 3);
+		
+		
+		}
+	
+	
+	}
+
+
+
+
+}
+
+
+
 
 pJpgInfo_t div_jpg(pJpgInfo_t pSrc_jpginfo,int COLS, int ROWS, pJpgInfo_t pdiv_jpginfo[])
 {

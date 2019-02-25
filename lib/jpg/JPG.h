@@ -18,6 +18,7 @@ typedef struct{
 
 pJpgInfo_t      decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path);
 bool 		decompress_jpg2bmp(char *src_path, char *dst_path);
+int		jpg_resize(pJpgInfo_t pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height);
 
 /*
 bug:当ROWs > COLS 出错

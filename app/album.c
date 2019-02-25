@@ -11,6 +11,9 @@
 #include "../lib/jpg/JPG.h"
 #include <linux/input.h>
 
+#define TOTAL_PIC 7
+
+
 struct point{
 	
 	int X;
@@ -20,7 +23,6 @@ struct point{
 	bool update;
 
 }ts_point;
-
 
 
 void *ts_monitor(void *arg);
@@ -61,7 +63,7 @@ int main()
 	JpgInfo_t btn_jpginfo;
 	//overview bg		
 	decompress_jpg2buffer(&btn_jpginfo, "../image/album/overview_bg.jpg");
-	draw_pic(plcdinfo, 600, 0, &btn_jpginfo);
+	draw_pic(plcdinfo, 600, 50, &btn_jpginfo);
 	free(btn_jpginfo.buff);
 
 	//***last按键
@@ -83,18 +85,98 @@ int main()
 	pthread_create(&ts_pth_id, NULL, ts_monitor, NULL);
 
 
-	//*读取相册
-	JpgInfo_t album_jpginfo[5];
-	char album_jpg_name[5][30] = {"../image/album/pic1.jpg", "../image/album/pic2.jpg","../image/album/pic3.jpg","../image/album/pic4.jpg","../image/album/pic5.jpg"};
-	for(int i = 0; i < 5; i++)
+	/*
+	 *backlog:使用双向链表实现，资源未释放
+	 *
+	 */
+	//*读取原图
+	JpgInfo_t src_jpginfo[TOTAL_PIC];
+	char src_jpg_name[TOTAL_PIC][30] = {"../image/album/pic1.jpg", "../image/album/pic2.jpg","../image/album/pic3.jpg","../image/album/pic4.jpg","../image/album/pic5.jpg", "../image/album/pic6.jpg", "../image/album/pic7.jpg"};
+	for(int i = 0; i < TOTAL_PIC; i++)
 	{
-		decompress_jpg2buffer(album_jpginfo+i, album_jpg_name[i]);
+		decompress_jpg2buffer(src_jpginfo+i, src_jpg_name[i]);
 		
 	}
+	/*
+	 *bug:无法缩放图片中的pic2_wrong
+	 *
+	 */
+	//缩放图片
+	JpgInfo_t album_jpginfo[TOTAL_PIC];
+	for(int i = 0; i < TOTAL_PIC; i++)
+	{
+		int resize_width = 0, resize_height = 0;
+		int ratio = 0 , ratio_w, ratio_h = 0;
+		
+		//长或宽大于
+		if(src_jpginfo[i].width > 600 || src_jpginfo[i].height > 480)
+		{
+			ratio_w = 100 * src_jpginfo[i].width / 600;
+			ratio_h = 100 * src_jpginfo[i].height / 480;
+			//取大者
+			ratio = ratio_w > ratio_h?ratio_w:ratio_h;
+			
+			resize_width = src_jpginfo[i].width * 100 / ratio;
+			resize_height = src_jpginfo[i].height * 100 / ratio;
+
+		}
+		
+		//长宽均小于
+		else if(src_jpginfo[i].width <= 600 && src_jpginfo[i].height <= 480 )
+		{
+			ratio_w = 100*600 / src_jpginfo[i].width;
+			ratio_h = 100*480 / src_jpginfo[i].height;
+
+			ratio = ratio_w < ratio_h?ratio_w:ratio_h;
+			
+			resize_width = ratio * src_jpginfo[i].width / 100;
+			resize_height = ratio * src_jpginfo[i].height / 100;
+		}
+
+		jpg_resize(src_jpginfo + i, album_jpginfo + i, resize_width, resize_height);
+	}
+
+	//缩放图片
+	JpgInfo_t overview_jpginfo[TOTAL_PIC];
+	for(int i = 0; i < TOTAL_PIC; i++)
+	{
+		int resize_width = 0, resize_height = 0;
+		int ratio = 0 , ratio_w, ratio_h = 0;
+		
+		//长或宽大于
+		if(src_jpginfo[i].width > 200 || src_jpginfo[i].height > 100)
+		{
+			ratio_w = 100 * src_jpginfo[i].width / 200;
+			ratio_h = 100 * src_jpginfo[i].height / 100;
+			//取大者
+			ratio = ratio_w > ratio_h?ratio_w:ratio_h;
+			
+			resize_width = src_jpginfo[i].width * 100 / ratio;
+			resize_height = src_jpginfo[i].height * 100 / ratio;
+
+		}
+		
+		//长宽均小于
+		else if(src_jpginfo[i].width <= 200 && src_jpginfo[i].height <= 100 )
+		{
+			ratio_w = 100*200 / src_jpginfo[i].width;
+			ratio_h = 100*100 / src_jpginfo[i].height;
+
+			ratio = ratio_w < ratio_h?ratio_w:ratio_h;
+			
+			resize_width = ratio * src_jpginfo[i].width / 100;
+			resize_height = ratio * src_jpginfo[i].height / 100;
+		}
+		
+		printf("%d\t%d\n", resize_width, resize_height);
+		jpg_resize(src_jpginfo + i, overview_jpginfo + i, resize_width, resize_height);
+		printf("z\n");
+	}
+	
 	
 	//**默认第一张
 	int index = 0;
-	draw_pic(plcdinfo, 0, 0, &album_jpginfo[index]);
+	middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);	
 	while(1)
 	{
 		if(ts_point.update == true)
@@ -106,20 +188,28 @@ int main()
 					index--;
 					if(index < 0)
 					{
-						index = 5 - 1;
+						index = TOTAL_PIC - 1;
 					}
 
 				}	
 				else {
 					index ++;
-					if(index >= 5)
+					if(index >= TOTAL_PIC)
 					{
 						index = 0;
 				
 					}	
 			
 				}
-				draw_pic(plcdinfo, 0, 0, &album_jpginfo[index]);
+				//draw_pic(plcdinfo, 0, 0, &album_jpginfo[index]);
+				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+				//相册
+				middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);
+				//overview
+
+				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
+				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
+				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[index]);
 			}
 		
 			ts_point.update = false;

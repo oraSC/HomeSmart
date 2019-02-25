@@ -44,6 +44,7 @@ bool		draw_pic(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo);
 bool		draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color);
 pBtnInfo_t	draw_btn(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo);
 pBtnInfo_t 	draw_btn_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color);
+int		middle_show(pLcdInfo_t plcdinfo, int x, int y, int width, int height, pJpgInfo_t pjpginfo);
 bool		if_btnclick(pBtnInfo_t pbtninfo, int x, int y);
 
 // btn链表 
