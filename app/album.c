@@ -31,7 +31,7 @@ int main()
 {
 	int ret;
 
-	char btn_name[2][30] = {"../image/album/last.jpg", "../image/album/next.jpg"};
+	char btn_name[3][30] = {"./image/album/exit.jpg", "./image/album/last.jpg", "./image/album/next.jpg"};
 
 	//1.创建lcd
 	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
@@ -49,7 +49,7 @@ int main()
 		perror("fail to malloc bg_pjpginfo");
 		return -1;
 	}
-	decompress_jpg2buffer(bg_pjpginfo, "../image/album/bg.jpg");
+	decompress_jpg2buffer(bg_pjpginfo, "./image/album/bg.jpg");
 
 	//3.加载背景
 	draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
@@ -58,7 +58,7 @@ int main()
 	//overview bg		
 	JpgInfo_t overviewBg_jpginfo;
 
-	decompress_jpg2buffer(&overviewBg_jpginfo, "../image/album/overview_bg.jpg");
+	decompress_jpg2buffer(&overviewBg_jpginfo, "./image/album/overview_bg.jpg");
 	draw_pic(plcdinfo, 600, 50, &overviewBg_jpginfo);
 
 
@@ -67,20 +67,28 @@ int main()
 	pBtn_SqList_t head = create_btn_sqlist();
 	
 	//**添加按键
-	JpgInfo_t btn_jpginfo;
-	
+	JpgInfo_t exit_jpginfo;
+	JpgInfo_t last_jpginfo;
+	JpgInfo_t next_jpginfo;
+		
+	//***exit按键
+	decompress_jpg2buffer(&exit_jpginfo, btn_name[0]);
+	pBtn_SqList_t exit_node = draw_btn(plcdinfo, 600, 0, &exit_jpginfo);
+	AddFromTail_btn_sqlist(head, exit_node);
+
+
 	//***last按键
-	decompress_jpg2buffer(&btn_jpginfo, btn_name[0]);
-	pBtn_SqList_t last_node = draw_btn(plcdinfo, 600, 0, &btn_jpginfo);
+	decompress_jpg2buffer(&last_jpginfo, btn_name[1]);
+	pBtn_SqList_t last_node = draw_btn_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
 	AddFromTail_btn_sqlist(head, last_node);
-	free(btn_jpginfo.buff);
+	
 
 	//***next按键
-	decompress_jpg2buffer(&btn_jpginfo, btn_name[1]);
-	pBtn_SqList_t next_node = draw_btn(plcdinfo, 600, 430, &btn_jpginfo);
+	decompress_jpg2buffer(&next_jpginfo, btn_name[2]);
+	pBtn_SqList_t next_node = draw_btn_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
 	AddFromTail_btn_sqlist(head, next_node);
-	free(btn_jpginfo.buff);
-
+	
+	
 
 
 	//5.创建触摸屏监控子线程
@@ -94,7 +102,7 @@ int main()
 	 */
 	//*读取原图
 	JpgInfo_t src_jpginfo[TOTAL_PIC];
-	char src_jpg_name[TOTAL_PIC][30] = {"../image/album/pic1.jpg", "../image/album/pic2.jpg","../image/album/pic3.jpg","../image/album/pic4.jpg","../image/album/pic5.jpg", "../image/album/pic6.jpg", "../image/album/pic7.jpg"};
+	char src_jpg_name[TOTAL_PIC][30] = {"./image/album/pic1.jpg", "./image/album/pic2.jpg","./image/album/pic3.jpg","./image/album/pic4.jpg","./image/album/pic5.jpg", "./image/album/pic6.jpg", "./image/album/pic7.jpg"};
 	for(int i = 0; i < TOTAL_PIC; i++)
 	{
 		decompress_jpg2buffer(src_jpginfo+i, src_jpg_name[i]);
@@ -182,62 +190,78 @@ int main()
 	int last_index = TOTAL_PIC - 1;
 	int next_index = index + 1;
 	middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);	
+	//overview
+	middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[last_index]);
+	middle_show(plcdinfo, 600, 215, 200, 100, &overview_jpginfo[index]);
+	middle_show(plcdinfo, 600, 380, 200, 100, &overview_jpginfo[next_index]);
+	draw_pic_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
+	draw_pic_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
 	while(1)
 	{
 		if(ts_point.update == true)
 		{
 			int opt = find_which_btn_click(head, ts_point.X, ts_point.Y);
 			if(opt > 0)
-			{	if(opt == 1)
+			{	
+				/*
+				 *bug:此处具有bug
+				 *
+				 */
+				if(opt == 1)
+				{
+					return 0;
+				
+				}
+				else if(opt == 2)
 				{
 					index--;
-					last_index--;
-					next_index--;
 					if(index < 0)
 					{
 						index = TOTAL_PIC - 1;
 					}
-					if(last_index < 0)
-					{
-						last_index = TOTAL_PIC - 1;
-					}
-					if(next_index < 0)
-					{
-						next_index = TOTAL_PIC - 1;
-					}
-						
-
 				}	
-				else {
+				else if(opt == 3)
+				{
 					index ++;
-					last_index++;
-					next_index++;
 					if(index >= TOTAL_PIC)
 					{
 						index = 0;
 				
 					}	
-					if(last_index >= TOTAL_PIC)
-					{
-						last_index = 0;
-					}
-					if(next_index >= TOTAL_PIC)
-					{
-						next_index = 0;
-					}
-			
 				}
-				//draw_pic(plcdinfo, 0, 0, &album_jpginfo[index]);
+				last_index = index - 1;
+				if(last_index >= TOTAL_PIC)
+				{
+					last_index = 0;
+				}
+				if(last_index < 0)
+				{
+					last_index = TOTAL_PIC - 1;
+				}
+
+				next_index = index + 1;
+				if(next_index >= TOTAL_PIC)
+				{
+					next_index = 0;
+				}
+				if(next_index < 0)
+				{
+					next_index = TOTAL_PIC - 1;
+				}
+
+
 				//bg
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 				draw_pic(plcdinfo, 600, 50, &overviewBg_jpginfo);
 				//相册
 				middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);
 				//overview
-
 				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[last_index]);
-				middle_show(plcdinfo, 600, 190, 200, 100, &overview_jpginfo[index]);
-				middle_show(plcdinfo, 600, 330, 200, 100, &overview_jpginfo[next_index]);
+				middle_show(plcdinfo, 600, 215, 200, 100, &overview_jpginfo[index]);
+				middle_show(plcdinfo, 600, 380, 200, 100, &overview_jpginfo[next_index]);
+				draw_pic_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
+				draw_pic_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
+		
 			}
 		
 			ts_point.update = false;

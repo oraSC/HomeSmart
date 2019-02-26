@@ -143,6 +143,9 @@ bool draw_pic(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo)
 
 }
 
+/*
+ *bug:适用于黑白图片
+ */
 bool draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
 {
 	unsigned int *base = plcdinfo->base + y * plcdinfo->width + x;
@@ -161,7 +164,7 @@ bool draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo,
 			unsigned char *pR = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
 			unsigned char *pG = pR + 1;
 			unsigned char *pB = pR + 2;
-			if((*pR == ((0xFF<<0)&color)) && (*pG == ((0xFF<<8)&color)) && (*pB == ((0xFF<<16)&color)))
+			if((*pR - ((0xFF<<0)&color) < 10) && (*pG - ((0xFF<<8)&color) < 10)  && (*pB - ((0xFF<<16)&color) < 10) )
 			
 			{
 			memcpy(base + cols, pjpginfo->buff + rows * pjpginfo->rowsize  + cols * 3, 3 );

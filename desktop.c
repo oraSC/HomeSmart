@@ -76,7 +76,7 @@ int main()
 	
 	//*6.读取按键
 	int app_num = 0;
-	char app[][20] = {"./app/1", "./app/2"};
+	char app[][20] = {"./app/album", "./app/2"};
 
 	while(1)
 	{
@@ -89,17 +89,19 @@ int main()
 		if(ts_point.update == true)
 		{
 			app_num = find_which_btn_click(head, ts_point.X, ts_point.Y);
-			if(app_num == 3)
+			if(app != 0)
 			{
-				break;
+				if(app_num == 3)
+				{
+					break;
+				}
+				//**启动指定app
+				system(app[app_num - 1]);
+				
+				printf("%d app\n", app_num);
+				
+				ts_point.update = false;	
 			}
-			//**启动指定app
-			system(app[app_num - 1]);
-			
-			printf("%d app\n", app_num);
-			
-			ts_point.update = false;	
-		
 		}
 		
 
