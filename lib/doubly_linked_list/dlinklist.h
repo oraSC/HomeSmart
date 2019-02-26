@@ -1,31 +1,14 @@
-#ifndef _ALBUM_H_
-#define _ALBUM_H_
-
-#include "../lib/lcd/LCD.h"
-#include "../lib/jpg/JPG.h"
+#ifndef _DLINKLIST_H_
+#define _DLINKLIST_H_
 
 
+typedef int elemType_t;
 
-
-struct point{
-
-	int X;
-	int Y;
-	int lastX;
-	int lastY;
-	bool update;
-
-};
 
 typedef struct Dlinklist{
 	
 	struct Dlinklist *prev;
-	
-	int		index;
-	pJpgInfo_t	src_pjpginfo;
-	pJpgInfo_t	album_pjpginfo;
-	pJpgInfo_t	overview_pjpginfo;
-
+	elemType_t data;
 	struct Dlinklist *next;
 
 }DlinkList_t, *pDlinkList_t;
@@ -44,11 +27,5 @@ int		printList(pDlinkList_t phead);
 int		clearList(pDlinkList_t phead);
 //删除链表
 int		destroyList(pDlinkList_t *pphead);
-
-
-
-int album();
-int calculate_resize(int src_width, int src_height, int *dst_width, int *dst_height, int limit_width, int limit_height);
-int update_album(pLcdInfo_t plcdinfo, pDlinkList_t head, pDlinkList_t now_pic);
 
 #endif

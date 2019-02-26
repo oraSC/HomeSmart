@@ -78,106 +78,65 @@ int album()
 	AddFromTail_btn_sqlist(head, next_node);
 	
 	
-	/*
-	 *backlog:使用双向链表实现，资源未释放
-	 *
-	 */
+	//定义相册双向链表
+	pDlinkList_t pic_phead = create_head();
+
 	//*读取原图
-	JpgInfo_t src_jpginfo[TOTAL_PIC];
 	char src_jpg_name[TOTAL_PIC][30] = {"./image/album/pic1.jpg", "./image/album/pic2.jpg","./image/album/pic3.jpg","./image/album/pic4.jpg","./image/album/pic5.jpg", "./image/album/pic6.jpg", "./image/album/pic7.jpg"};
+
 	for(int i = 0; i < TOTAL_PIC; i++)
 	{
-		decompress_jpg2buffer(src_jpginfo+i, src_jpg_name[i]);
-		
-	}
-	/*
-	 *bug:无法缩放图片中的pic2_wrong
-	 *
-	 */
-	//缩放图片
-	JpgInfo_t album_jpginfo[TOTAL_PIC];
-	for(int i = 0; i < TOTAL_PIC; i++)
-	{
-		int resize_width = 0, resize_height = 0;
-		int ratio = 0 , ratio_w, ratio_h = 0;
-		
-		//长或宽大于
-		if(src_jpginfo[i].width > 600 || src_jpginfo[i].height > 480)
-		{
-			ratio_w = 100 * src_jpginfo[i].width / 600;
-			ratio_h = 100 * src_jpginfo[i].height / 480;
-			//取大者
-			ratio = ratio_w > ratio_h?ratio_w:ratio_h;
-			
-			resize_width = src_jpginfo[i].width * 100 / ratio;
-			resize_height = src_jpginfo[i].height * 100 / ratio;
+		//***分配空间
+		pDlinkList_t new_node 		= (DlinkList_t *)malloc(sizeof(DlinkList_t));
+		pJpgInfo_t src_pjpginfo 		= (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+		pJpgInfo_t album_pjpginfo		= (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+		pJpgInfo_t overview_pjpginfo		= (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
 
-		}
+		//***解压
+		decompress_jpg2buffer(src_pjpginfo, src_jpg_name[i]);
 		
-		//长宽均小于
-		else if(src_jpginfo[i].width <= 600 && src_jpginfo[i].height <= 480 )
-		{
-			ratio_w = 100*600 / src_jpginfo[i].width;
-			ratio_h = 100*480 / src_jpginfo[i].height;
-
-			ratio = ratio_w < ratio_h?ratio_w:ratio_h;
-			
-			resize_width = ratio * src_jpginfo[i].width / 100;
-			resize_height = ratio * src_jpginfo[i].height / 100;
-		}
-
-		jpg_resize(src_jpginfo + i, album_jpginfo + i, resize_width, resize_height);
-	}
-
-	//缩放图片
-	JpgInfo_t overview_jpginfo[TOTAL_PIC];
-	for(int i = 0; i < TOTAL_PIC; i++)
-	{
-		int resize_width = 0, resize_height = 0;
-		int ratio = 0 , ratio_w, ratio_h = 0;
+		//***resize
+		int src_width 	= src_pjpginfo->width;
+		int src_height 	= src_pjpginfo->height;
+		int dst_width = 0, dst_height = 0;
 		
-		//长或宽大于
-		if(src_jpginfo[i].width > 200 || src_jpginfo[i].height > 100)
-		{
-			ratio_w = 100 * src_jpginfo[i].width / 200;
-			ratio_h = 100 * src_jpginfo[i].height / 100;
-			//取大者
-			ratio = ratio_w > ratio_h?ratio_w:ratio_h;
-			
-			resize_width = src_jpginfo[i].width * 100 / ratio;
-			resize_height = src_jpginfo[i].height * 100 / ratio;
+		//****for album
+		calculate_resize(src_width, src_height, &dst_width, &dst_height, 600, 480);
+		jpg_resize(src_pjpginfo, album_pjpginfo, dst_width, dst_height);
+		
+		//****for overview
+		calculate_resize(src_width, src_height, &dst_width, &dst_height, 200, 100);
+		jpg_resize(src_pjpginfo, overview_pjpginfo, dst_width, dst_height);
 
-		}
+		//将数据添加进节点中
+		new_node->prev 			= NULL;
+		new_node->src_pjpginfo 		= src_pjpginfo;	 
+		new_node->album_pjpginfo 	= album_pjpginfo;
+		new_node->overview_pjpginfo	= overview_pjpginfo;
+		new_node->index = i; 
 		
-		//长宽均小于
-		else if(src_jpginfo[i].width <= 200 && src_jpginfo[i].height <= 100 )
-		{
-			ratio_w = 100*200 / src_jpginfo[i].width;
-			ratio_h = 100*100 / src_jpginfo[i].height;
+		/*sleep(1);
+		draw_pic(plcdinfo, 0, 0, new_node->src_pjpginfo);
+		
+		sleep(1);
+		draw_pic(plcdinfo, 0, 0, new_node->album_pjpginfo);
 
-			ratio = ratio_w < ratio_h?ratio_w:ratio_h;
-			
-			resize_width = ratio * src_jpginfo[i].width / 100;
-			resize_height = ratio * src_jpginfo[i].height / 100;
-		}
-		
-		//printf("%d\t%d\n", resize_width, resize_height);
-		jpg_resize(src_jpginfo + i, overview_jpginfo + i, resize_width, resize_height);
-		//printf("z\n");
-	}
-	
-		
-	//**默认第一张
-	int index = 0;
-	int last_index = TOTAL_PIC - 1;
-	int next_index = index + 1;
-	middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);	
-	//overview
-	middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[last_index]);
-	middle_show(plcdinfo, 600, 215, 200, 100, &overview_jpginfo[index]);
-	middle_show(plcdinfo, 600, 380, 200, 100, &overview_jpginfo[next_index]);
+		sleep(1);
+		draw_pic(plcdinfo, 0, 0, new_node->overview_pjpginfo);
+		*/
+
+		//添加节点
+		add_nodeintohead(pic_phead, new_node);
+	}	
+
+	//相册加载(默认展示第三张)
+	pDlinkList_t now_pic = pic_phead->next->next;
+
+	//更新相册
+	update_album(plcdinfo, pic_phead, now_pic);
 	draw_pic_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
 	draw_pic_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
+	
 	while(1)
 	{
 		if(ts_point.update == true)
@@ -185,10 +144,6 @@ int album()
 			int opt = find_which_btn_click(head, ts_point.X, ts_point.Y);
 			if(opt > 0)
 			{	
-				/*
-				 *bug:此处具有bug
-				 *
-				 */
 				if(opt == 1)
 				{
 					return 0;
@@ -196,51 +151,29 @@ int album()
 				}
 				else if(opt == 2)
 				{
-					index--;
-					if(index < 0)
+					now_pic = now_pic->prev;
+					if(now_pic == pic_phead)
 					{
-						index = TOTAL_PIC - 1;
+						now_pic = pic_phead->prev;
 					}
+				
 				}	
 				else if(opt == 3)
 				{
-					index ++;
-					if(index >= TOTAL_PIC)
+					now_pic = now_pic->next;
+					if(now_pic == pic_phead)
 					{
-						index = 0;
+						now_pic = pic_phead->next;
+					}
+					
+				}
 				
-					}	
-				}
-				last_index = index - 1;
-				if(last_index >= TOTAL_PIC)
-				{
-					last_index = 0;
-				}
-				if(last_index < 0)
-				{
-					last_index = TOTAL_PIC - 1;
-				}
-
-				next_index = index + 1;
-				if(next_index >= TOTAL_PIC)
-				{
-					next_index = 0;
-				}
-				if(next_index < 0)
-				{
-					next_index = TOTAL_PIC - 1;
-				}
-
-
 				//bg
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 				draw_pic(plcdinfo, 600, 50, &overviewBg_jpginfo);
-				//相册
-				middle_show(plcdinfo, 0, 0, 600, 480, &album_jpginfo[index]);
-				//overview
-				middle_show(plcdinfo, 600, 50, 200, 100, &overview_jpginfo[last_index]);
-				middle_show(plcdinfo, 600, 215, 200, 100, &overview_jpginfo[index]);
-				middle_show(plcdinfo, 600, 380, 200, 100, &overview_jpginfo[next_index]);
+				//刷新相册
+				update_album(plcdinfo, pic_phead, now_pic);
+				
 				draw_pic_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
 				draw_pic_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
 		
@@ -248,17 +181,14 @@ int album()
 		
 			ts_point.update = false;
 		}
-	
-	
-	
-	
+		
 	}
 
 
 
 
 
-
+/*
 	//销毁lcd
 	ret = lcd_destroy(plcdinfo);
 
@@ -271,6 +201,200 @@ int album()
 	
 	printf("album exits\n");
 	return 0;
+*/
+}
+
+
+
+
+int update_album(pLcdInfo_t plcdinfo, pDlinkList_t head, pDlinkList_t now_pic)
+{
+	
+	middle_show(plcdinfo, 0, 0, 600, 480, now_pic->album_pjpginfo);	
+	pDlinkList_t plast = now_pic->prev;
+	pDlinkList_t pnext = now_pic->next;
+	
+	//overview
+	if(plast == head)
+	{
+		plast = head->prev;
+	
+	}
+	if(pnext == head)
+	{
+		pnext = head->next;
+	}
+	middle_show(plcdinfo, 600, 50, 200, 100, plast->overview_pjpginfo);
+	middle_show(plcdinfo, 600, 215, 200, 100, now_pic->overview_pjpginfo);
+	middle_show(plcdinfo, 600, 380, 200, 100, pnext->overview_pjpginfo);
 
 }
+
+
+
+
+
+int calculate_resize(int src_width, int src_height, int *dst_width, int *dst_height, int limit_width, int limit_height)
+{
+	int ratio = 0 , ratio_w, ratio_h = 0;
+		
+	//长或宽大于
+	if(src_width > limit_width || src_height > limit_height)
+	{
+		ratio_w = 100 * src_width / limit_width;
+		ratio_h = 100 * src_height / limit_height;
+		//取大者
+		ratio = ratio_w > ratio_h?ratio_w:ratio_h;
+		
+		*dst_width = src_width * 100 / ratio;
+		*dst_height = src_height * 100 / ratio;
+
+	}
+	
+	//长宽均小于
+	else if(src_width <= limit_width && src_height <= limit_height)
+	{
+		ratio_w = 100*limit_width / src_width;
+		ratio_h = 100*limit_height / src_height;
+
+		ratio = ratio_w < ratio_h?ratio_w:ratio_h;
+		
+		*dst_width = ratio * src_width / 100;
+		*dst_height = ratio * src_height / 100;
+	}
+	return 0;
+
+}
+
+pDlinkList_t create_head()
+{
+	int ret;
+
+	pDlinkList_t phead = (DlinkList_t *)malloc(sizeof(DlinkList_t));
+	if(phead == NULL)
+	{
+		perror("fail to malloc in create head");
+		return NULL;
+	}
+
+	//初始化
+	phead->prev = phead;
+	phead->index = 0;
+	phead->src_pjpginfo 	 = NULL;
+	phead->album_pjpginfo 	 = NULL;
+	phead->overview_pjpginfo = NULL;
+	phead->next = phead;
+
+	return phead;
+}
+
+int add_nodeintohead(pDlinkList_t phead, pDlinkList_t node)
+{
+	if(phead == NULL || node == NULL)
+	{
+		printf("phead and node can't be NULL in add nodeintohead\n");
+		return -1;
+	}
+
+	//插入操作
+	node->next  = phead->next;
+	node->prev = phead; 
+	phead->next->prev = node;
+	phead->next = node;
+	
+	return 0;
+
+}
+
+
+int add_nodeintotail(pDlinkList_t phead, pDlinkList_t node)
+{
+	if(phead == NULL || node == NULL)
+	{
+		printf("phead and node can't be NULLin add nodeintotail\n");
+		return -1;
+	}
+
+	//插入操作
+	node->prev  = phead->prev;
+	node->next = phead; 
+	phead->prev->next = node;
+	phead->prev = node;
+	
+	return 0;
+
+}
+
+
+int printList(pDlinkList_t phead)
+{
+	if(phead == NULL)
+	{
+		printf("phead can't be NULL in printList\n");
+		return -1;
+	}
+	
+	//跳过头
+	pDlinkList_t p = phead->next;
+
+	printf("head->");
+	while(p != phead)
+	{
+		printf("%d->", p->index);
+		p = p->next;
+	}
+	printf("head\n");
+
+	return 0;
+}
+
+int clearList(pDlinkList_t phead)
+{
+	if(phead == NULL)
+	{
+		printf("phead can't be NULL in clearList\n");
+		return -1;
+	}
+	//跳过头
+	pDlinkList_t p = phead->next;
+	
+
+	while(p != phead)
+	{
+		pDlinkList_t next = p->next;
+		p->next = NULL;
+		p->prev = NULL;
+		free(p);
+		p = next;
+	}
+
+	//改变头
+	phead->next = phead;
+	phead->prev = phead;
+	
+	return 0;
+
+}
+
+int destroyList(pDlinkList_t *pphead)
+{
+	if(pphead == NULL || *pphead == NULL)
+	{
+		printf("pphead and phead can't be NULL in destroyList\n");
+		return -1;
+	}
+
+	//清空链表
+	clearList(*pphead);
+
+	free(*pphead);
+
+	pphead = NULL;
+
+}
+
+
+
+
+
 
