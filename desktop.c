@@ -10,7 +10,8 @@
 #include "./lib/lcd/LCD.h"
 #include "./lib/jpg/JPG.h"
 #include <linux/input.h>
-
+#include "./app/album.h"
+/*
 struct point{
 	
 	int X;
@@ -20,8 +21,8 @@ struct point{
 	bool update;
 
 }ts_point;
-
-
+*/
+extern struct point ts_point;
 
 void *ts_monitor(void *arg);
 
@@ -95,9 +96,11 @@ int main()
 				{
 					break;
 				}
-				//**启动指定app
-				system(app[app_num - 1]);
-				
+				else if(app_num == 1)
+				{
+					album();
+				}
+					
 				printf("%d app\n", app_num);
 				
 				ts_point.update = false;	

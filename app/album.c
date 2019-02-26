@@ -9,25 +9,14 @@
 
 #include "../lib/lcd/LCD.h"
 #include "../lib/jpg/JPG.h"
+#include "./album.h"
 #include <linux/input.h>
 
 #define TOTAL_PIC 7
 
+struct point ts_point;
 
-struct point{
-	
-	int X;
-	int Y;
-	int lastX;
-	int lastY;
-	bool update;
-
-}ts_point;
-
-
-void *ts_monitor(void *arg);
-
-int main()
+int album()
 {
 	int ret;
 
@@ -89,13 +78,6 @@ int main()
 	AddFromTail_btn_sqlist(head, next_node);
 	
 	
-
-
-	//5.创建触摸屏监控子线程
-	pthread_t ts_pth_id;
-	pthread_create(&ts_pth_id, NULL, ts_monitor, NULL);
-
-
 	/*
 	 *backlog:使用双向链表实现，资源未释放
 	 *
@@ -292,53 +274,3 @@ int main()
 
 }
 
-void *ts_monitor(void *arg)
-{
-	int ret;
-
-	//线程分离
-	pthread_detach(pthread_self());
-
-	//触摸屏
-	struct input_event tsinfo;
-	int ts_fd = open("/dev/input/event0", O_RDWR);
-	if(ts_fd < 0)
-	{
-		perror("fail to open touch screen");
-		pthread_exit(NULL);
-	}
-
-	while(1)
-	{
-		
-		ret = read(ts_fd, &tsinfo, sizeof(struct input_event));
-		if(ret < 0)
-		{
-			perror("error exits in read tsinfo");
-			pthread_exit(NULL);
-		
-		}
-		//X
-		if(tsinfo.type == EV_ABS && tsinfo.code == ABS_X)
-		{
-			printf("x = %d\t", tsinfo.value);
-			ts_point.X = tsinfo.value;
-		}
-
-		//Y
-		if(tsinfo.type == EV_ABS && tsinfo.code == ABS_Y)
-		{
-			printf("y = %d\n", tsinfo.value);
-			ts_point.Y = tsinfo.value;
-		}
-		if(ts_point.lastX != ts_point.X && ts_point.lastY != ts_point.Y)
-		{
-			//坐标更新
-			ts_point.lastX= ts_point.X;
-			ts_point.lastY = ts_point.Y;
-			ts_point.update = true;
-		}
-
-	}
-
-}
