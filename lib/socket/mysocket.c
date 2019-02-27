@@ -69,7 +69,7 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 		perror("error exits when accept client connect");
 		goto error;
 	}
-
+	/*
 
 	int ret1, ret2;
 
@@ -113,7 +113,7 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 	printf("send buff size:%d, len:%d\n", send_buff_size, send_buff_len);
 
 
-
+	*/
 
 
 	//客户端端口、地址

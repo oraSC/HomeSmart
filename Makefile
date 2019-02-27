@@ -1,6 +1,6 @@
-desktop:desktop.o JPG.o LCD.o BMP.o album.o
-	arm-linux-gcc -o desktop desktop.o JPG.o LCD.o BMP.o album.o -I./lib/jpg/libjpeg -L./lib/jpg/libjpeg -ljpeg -lpthread
-	rm desktop.o JPG.o LCD.o BMP.o album.o
+desktop:desktop.o JPG.o LCD.o BMP.o album.o mysocket.o
+	arm-linux-gcc -o desktop desktop.o JPG.o LCD.o BMP.o album.o mysocket.o -I./lib/jpg/libjpeg -L./lib/jpg/libjpeg -ljpeg -lpthread
+	rm desktop.o JPG.o LCD.o BMP.o album.o mysocket.o
 desktop.o:desktop.c
 	arm-linux-gcc -c desktop.c
 JPG.o:./lib/jpg/JPG.c
@@ -11,3 +11,5 @@ BMP.o:./lib/bmp/BMP.c
 	arm-linux-gcc -c ./lib/bmp/BMP.c
 album.o:./app/album.c
 	arm-linux-gcc -c ./app/album.c
+mysocket.o:./lib/socket/mysocket.c
+	arm-linux-gcc -c ./lib/socket/mysocket.c

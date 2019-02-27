@@ -16,6 +16,14 @@ struct point{
 	bool update;
 
 };
+struct Command{
+
+	bool update;
+	unsigned char ascii[10];
+
+};
+
+
 
 typedef struct Dlinklist{
 	
@@ -47,7 +55,7 @@ int		destroyList(pDlinkList_t *pphead);
 
 
 
-int album();
+int album(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand);
 int calculate_resize(int src_width, int src_height, int *dst_width, int *dst_height, int limit_width, int limit_height);
 int update_album(pLcdInfo_t plcdinfo, pDlinkList_t head, pDlinkList_t now_pic);
 

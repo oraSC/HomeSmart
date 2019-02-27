@@ -14,23 +14,13 @@
 
 #define TOTAL_PIC 7
 
-struct point ts_point;
 
-int album()
+int album(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand)
 {
 	int ret;
 
 	char btn_name[3][30] = {"./image/album/exit.jpg", "./image/album/last.jpg", "./image/album/next.jpg"};
 
-	//1.创建lcd
-	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
-	if(plcdinfo == NULL)
-	{
-		perror("fail to malloc lcd");
-		return -1;
-	}
-	plcdinfo = lcd_create("/dev/fb0", plcdinfo);
-	
 	//2.打开背景图片
 	pJpgInfo_t bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
 	if(bg_pjpginfo == NULL)
@@ -137,11 +127,20 @@ int album()
 	draw_pic_onlyAcolor(plcdinfo, 600, 50, &last_jpginfo, 0x00000000);
 	draw_pic_onlyAcolor(plcdinfo, 600, 380, &next_jpginfo, 0x00000000);
 	
+	int opt;
 	while(1)
 	{
-		if(ts_point.update == true)
+		if(pts_point->update == true || pcommand->update == true)
 		{
-			int opt = find_which_btn_click(head, ts_point.X, ts_point.Y);
+			if(pts_point->update == true)
+			{
+				opt = find_which_btn_click(head, pts_point->X, pts_point->Y);
+			}
+			else if(pcommand->update == true)	
+			{
+				opt = pcommand->ascii[0] - '0';
+			
+			}
 			if(opt > 0)
 			{	
 				if(opt == 1)
@@ -179,29 +178,30 @@ int album()
 		
 			}
 		
-			ts_point.update = false;
+			pts_point->update = false;
+			pcommand->update  = false;	
 		}
-		
 	}
+		
+	
 
 
 
 
-
-/*
-	//销毁lcd
-	ret = lcd_destroy(plcdinfo);
-
-	//释放背景图片资源
+	//释放图片资源
 	free(bg_pjpginfo->buff);
 	free(bg_pjpginfo);
-	
+	free(overviewBg_jpginfo.buff);
+	free(last_jpginfo.buff);
+	free(next_jpginfo.buff);
+
 	//销毁链表
 	destroy_btn_sqlist(&head);
-	
+	destroyList(&pic_phead);
+
 	printf("album exits\n");
 	return 0;
-*/
+
 }
 
 
@@ -364,6 +364,9 @@ int clearList(pDlinkList_t phead)
 		pDlinkList_t next = p->next;
 		p->next = NULL;
 		p->prev = NULL;
+		free(p->src_pjpginfo->buff);
+		free(p->album_pjpginfo->buff);
+		free(p->overview_pjpginfo->buff);
 		free(p);
 		p = next;
 	}
