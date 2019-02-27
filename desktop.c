@@ -15,6 +15,7 @@
 #include <linux/input.h>
 #include "./app/album.h"
 #include "./lib/socket/mysocket.h"
+#include "./app/music.h"
 
 /*
 struct point{
@@ -145,6 +146,25 @@ int main()
 
 					}
 				}
+				else if(app_num == 2)
+				{
+					ret = send(soc_fd, "music", strlen("music"), 0);
+					if(ret < 0)
+					{
+						printf("fail to send, no client online\n");
+
+					}
+					
+					music(plcdinfo, &ts_point, &command);
+					
+					ret = send(soc_fd, "desktop", strlen("desktop"), 0);
+					if(ret < 0)
+					{
+						printf("fail to send, no client online\n");
+
+					}
+				}
+				
 				//再次刷新桌面
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 				draw_pic(plcdinfo, 100, 100, &app_jpginfo[0]);
