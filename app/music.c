@@ -16,6 +16,8 @@
 
 #define TOTAL_MUSIC 5
 
+void *gif_routine(void *arg);
+bool gif_shutdown;
 
 int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand)
 {
@@ -70,11 +72,18 @@ int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand
 
 	//***pause按键
 	decompress_jpg2buffer(&pause_jpginfo, btn_name[4]);
-	pBtn_SqList_t pause_node = draw_btn(plcdinfo, 367, 383, &pause_jpginfo);
-	AddFromTail_btn_sqlist(head, pause_node);
+	//pBtn_SqList_t pause_node = draw_btn(plcdinfo, 367, 383, &pause_jpginfo);
+	//AddFromTail_btn_sqlist(head, pause_node);
 	
 	int opt;
 	int index = 1;
+	int play_count = 1;
+
+	//创建gif播放子线程
+	pthread_t gif_pth_id;
+	pthread_create(&gif_pth_id, NULL, gif_routine, plcdinfo);
+	gif_shutdown = false;
+
 	while(1)
 	{
 
@@ -92,19 +101,57 @@ int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand
 			switch(opt)
 			{
 				//退出，资源未释放
-				case 1: return 0;
+				case 1: 
+					gif_shutdown = true;
+				       	system("killall -CONT madplay");
+					system("killall madplay");
+					goto exit;
 				
 				//上一首
-				case 2:index--;play_music(index);break;
+				case 2:index--;
+				       system("killall -CONT madplay");
+				       system("killall madplay");
+				       play_music(&index);
+				       play_count = 2; 
+				       draw_pic(plcdinfo, 367, 383, &pause_jpginfo);
+				       break;
 
 				//下一首
-				case 3:index++;play_music(index);break;
+				case 3:index++;
+				       system("killall -CONT madplay");
+				       system("killall madplay");
+				       play_music(&index);
+				       play_count = 2;
+				       draw_pic(plcdinfo, 367, 383, &pause_jpginfo);
+				       break;
 
-				//播放
-				case 4:play_music(index);break;
-
+				case 4:
+				       	//播放
+					if(play_count == 1)
+					{
+						play_music(&index);
+						play_count = 2;
+						draw_pic(plcdinfo, 367, 383, &pause_jpginfo);
+						break;
+					}
+					//暂停
+					else if(play_count == 2)
+					{
+						system("killall -STOP madplay");
+						play_count = 3;
+						draw_pic(plcdinfo, 367, 383, &play_jpginfo);
+						break;
+					}
+					//继续
+					else if(play_count == 3)
+					{
+						system("killall -CONT madplay");
+						play_count = 2;
+						draw_pic(plcdinfo, 367, 383, &pause_jpginfo);
+						break;
+					}
 				//暂停
-				case 5:printf("pause\n");break;
+				//case 5:system("killall -STOP madplay");printf("pause\n");break;
 			
 			
 			}
@@ -114,33 +161,92 @@ int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand
 				
 		}
 	
-	
-	
-	
-	
 	}
+
+exit:
+	pthread_join(gif_pth_id, NULL);
+	//释放资源
+	free(bg_pjpginfo->buff);
+	free(bg_pjpginfo);
+	destroy_btn_sqlist(&head);
+	
+	free(exit_jpginfo.buff);
+	free(last_jpginfo.buff);
+	free(next_jpginfo.buff);
+	free(play_jpginfo.buff);
+	free(pause_jpginfo.buff);
+	return 0;
+
+
 }
 
 
-void play_music(int index)
+void play_music(int *index)
 {
-	if(index <= 0)
+	if(*index <= 0)
 	{
-		index = TOTAL_MUSIC;
+		*index = TOTAL_MUSIC;
 	}
-	else if(index > TOTAL_MUSIC)
+	else if(*index > TOTAL_MUSIC)
 	{
-		index = 1;
+		*index = 1;
 	}
 
 	char music_name[30];
 
 	bzero(music_name, sizeof(music_name));
 
-	sprintf(music_name, "madplay ./music/%d.mp3 &", index);
+	sprintf(music_name, "madplay ./music/%d.mp3 &", *index);
+	printf("%s\n", music_name);
 
 	system(music_name);
 }
+
+void *gif_routine(void *arg)
+{
+	pLcdInfo_t plcdinfo = (LcdInfo_t *)arg;
+
+	//读取图片
+	JpgInfo_t gif_jpginfo[11];
+	for(int i = 0; i < 11; i++)
+	{
+		char path[40];
+		bzero(path, sizeof(path));
+		
+		sprintf(path, "./image/music/gif/frame%d.jpg", i);
+
+		decompress_jpg2buffer(&gif_jpginfo[i], path);
+	
+	}
+	
+	
+	while(1)
+	{
+		for(int i = 0; i < 11; i++)
+		{
+			draw_pic(plcdinfo, 280, 70, &gif_jpginfo[i]);
+			usleep(200000);	
+			if(gif_shutdown == true)	
+			{
+				for(int j = 0; j < 11; j++)
+				{
+					free(gif_jpginfo[j].buff);
+					printf("Y\n");	
+				}
+				pthread_exit(NULL);
+		
+			}
+		}
+	
+	}
+
+
+
+
+
+
+}
+
 
 
 

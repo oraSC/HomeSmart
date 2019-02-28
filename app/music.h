@@ -9,6 +9,6 @@
 
 
 int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand);
-void play_music(int index);
+void play_music(int *index);
 
 #endif
