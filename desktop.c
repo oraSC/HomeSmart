@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <strings.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "./lib/lcd/LCD.h"
 #include "./lib/jpg/JPG.h"
@@ -16,6 +17,8 @@
 #include "./app/album.h"
 #include "./lib/socket/mysocket.h"
 #include "./app/music.h"
+
+#define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
 
 /*
 struct point{
@@ -30,17 +33,32 @@ struct point{
 */
 struct point 	ts_point;
 struct Command 	command;
-int soc_fd;
 
 
+void update_clients(char *message);
 void *ts_monitor(void *arg);
 void *remote_control(void *arg);
 
+//声明待添加集合列表
+int soc_fds[10];
+int soc_fds_len;
+int max_fd;
+
+//声明状态值(记录当前处于的功能)
+char state[20];
+
 int main()
 {
-	//先将soc_fd绑定到标准出错
-	soc_fd = 3;
-	
+
+
+	//初始化多路复用待添加集合列表
+	bzero(soc_fds, sizeof(soc_fds));
+	soc_fds_len = 0;
+	max_fd = -1;
+
+	//初始化状态值
+	strcpy(state, "desktop");
+
 	int ret;
 
 	char app_icon_name[3][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg", "./image/desktop/exit.jpg"};
@@ -91,16 +109,6 @@ int main()
 	pthread_t soc_pth_id;
 	pthread_create(&soc_pth_id, NULL, remote_control, NULL);
 	
-	/*
-	 *bug:远程控制客户端未连接情况
-	 */
-	ret = send(soc_fd, "desktop", strlen("desktop"), 0);
-	if(ret < 0)
-	{
-		printf("fail to send, no client online\n");
-
-	}
-
 	//*6.读取按键
 	int app_num = 0;
 	char app[][20] = {"./app/album", "./app/2"};
@@ -116,10 +124,12 @@ int main()
 		{	
 			if(ts_point.update == true)
 			{
+				ts_point.update = false;
 				app_num = find_which_btn_click(head, ts_point.X, ts_point.Y);
 			}
 			else if(command.update == true)
 			{
+				command.update = false;
 				app_num = command.ascii[0] - '0';
 			}
 			if(app_num != 0)
@@ -130,39 +140,15 @@ int main()
 				}
 				else if(app_num == 1)
 				{
-					ret = send(soc_fd, "album", strlen("album"), 0);
-					if(ret < 0)
-					{
-						printf("fail to send, no client online\n");
-
-					}
-					
+					update_clients("album");	
 					album(plcdinfo, &ts_point, &command);
-					
-					ret = send(soc_fd, "desktop", strlen("desktop"), 0);
-					if(ret < 0)
-					{
-						printf("fail to send, no client online\n");
-
-					}
+					update_clients("desktop");
 				}
 				else if(app_num == 2)
 				{
-					ret = send(soc_fd, "music", strlen("music"), 0);
-					if(ret < 0)
-					{
-						printf("fail to send, no client online\n");
-
-					}
-					
+					update_clients("music");	
 					music(plcdinfo, &ts_point, &command);
-					
-					ret = send(soc_fd, "desktop", strlen("desktop"), 0);
-					if(ret < 0)
-					{
-						printf("fail to send, no client online\n");
-
-					}
+					update_clients("desktop");
 				}
 
 				
@@ -176,8 +162,8 @@ int main()
 				
 			}
 			
-			ts_point.update = false;	
-			command.update = false;
+			//ts_point.update = false;	
+			//command.update = false;
 		
 		}
 	
@@ -252,38 +238,173 @@ void *ts_monitor(void *arg)
 
 void *remote_control(void *arg)
 {
-	
-	int ret;
 
 	//线程分离
 	pthread_detach(pthread_self());
-	unsigned char *client_ip;
-	int client_port;
 
-	//创建服务器
-	soc_fd = server_create(3000, NULL, &client_port, &client_ip);
+	int ret;
 	
-	printf("ip: %s, port: %d online\n", client_ip, client_port);	
+	//创建socket(套接字)
+	int soc_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(soc_fd < 0)
+	{
+		perror("fail to create socket");
+		pthread_exit(NULL);
+	}
+
+	//绑定套接字与网络地址
+	//1.初始化服务器 IPv4 地址结构体
+	struct sockaddr_in server_addr;
+	int server_addr_len = sizeof(server_addr);
+	bzero(&server_addr, server_addr_len);
+
+	server_addr.sin_family 	= AF_INET;
+	server_addr.sin_port	= htons(3000);
+	//server_addr.sin_addr.s_addr	= inet_addr("192.168.10.31");
+	htonl(INADDR_ANY);	
+
+	//2.绑定
+	ret = bind(soc_fd, (struct sockaddr *)&server_addr, server_addr_len);
+	if(ret < 0)
+	{
+		perror("fail to bind socket");
+		//return -1;
+	}
 	
+	//将待链接套接字设置为监听套接字
+	ret = listen(soc_fd, 5);
+	if(ret < 0)
+	{
+		perror("error exits in listen");
+		//return -1;
+	}
+
+	printf("server is waiting for connection\n");
+
+	//等待对端连接请求
+	//1.声明变量存储对端信息
+	struct sockaddr_in client_addr;
+	int client_addr_len = sizeof(client_addr);
+	bzero(&client_addr, client_addr_len);
+	
+
+
+	//将监听套接字(soc_fd)加入待待添加集合列表(应该用链表代替)
+	soc_fds[soc_fds_len] = soc_fd;
+	max_fd = FIND_MAX_FD(soc_fd, max_fd);
+	soc_fds_len++;
+
+	char buff[100];
+
+	fd_set fdset;
+
+	//发收信息
 	while(1)
 	{
-		bzero(command.ascii, sizeof(command.ascii));
+		bzero(buff, sizeof(buff));
+
+		//配置多路复用描述符集
+		FD_ZERO(&fdset);
+
+		//将待添加集合列表添加
+		for(int i = 0; i < soc_fds_len; i++)
+		{
+			FD_SET(soc_fds[i], &fdset);
+
+		}
 		
-		ret = recv(soc_fd, &command.ascii, sizeof(command.ascii), 0);
+		//多路复用
+		ret = select(max_fd+1, &fdset, NULL, NULL, NULL);
 		if(ret < 0)
 		{
-			perror("error exits in recv");
-			shutdown(soc_fd, SHUT_RDWR);
+			perror("error exits in select");
+			//return -1;
 		}
 		else if(ret == 0)
 		{
-			printf("client offline\n");
-			shutdown(soc_fd, SHUT_RDWR);
-			pthread_exit(NULL);	
+			printf("timeout\n");
+			continue;
 		}
+		//有新的客户端连接请求
+		else if(FD_ISSET(soc_fd, &fdset))
+		{
+				
+			int acc_fd = accept(soc_fd, (struct sockaddr *)&client_addr, &client_addr_len);
+			if(acc_fd < 0)
+			{
+				perror("error exits when accept client connect");
+				//return -1;
+			}
 
-		printf("command:%s\n", command.ascii);
-		command.update = true;	
+			printf("connecting with client.\nip: %s, port: %hd\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+			//发送当前状态值
+			ret = send(acc_fd, state, strlen(state), 0);
+			if(ret < 0)
+			{
+				perror("error exits in send state when accept");
+			
+			}
+
+			//更新待添加集合列表
+			soc_fds[soc_fds_len] = acc_fd;
+			max_fd = FIND_MAX_FD(acc_fd, max_fd);
+			soc_fds_len++;
+
+		}
+		//从客户端接受消息
+		else
+		{
+			for(int j = 1; j < soc_fds_len; j++)
+			{
+				if(FD_ISSET(soc_fds[j], &fdset))
+				{
+					bzero(command.ascii, sizeof(command.ascii));
+		
+					ret = recv(soc_fds[j], &command.ascii, sizeof(command.ascii), 0);
+					if(ret < 0)
+					{
+						perror("error exits in recv");
+						shutdown(soc_fds[j], SHUT_RDWR);
+						//在集合中删除
+						soc_fds[j] = soc_fds[soc_fds_len - 1];
+						soc_fds_len--;
+					}
+					else if(ret == 0)
+					{
+						printf("a client offline\n");
+						shutdown(soc_fds[j], SHUT_RDWR);
+						//在集合中删去
+						soc_fds[j] = soc_fds[soc_fds_len - 1];
+						soc_fds_len--;
+
+					}
+					printf("command:%s\n", command.ascii);
+					command.update = true;	
+				}
+			}
+		}
+	}
+}
+
+
+void update_clients(char *message)
+{
+	
+	int ret;
+	
+	//更新状态值
+	bzero(state, sizeof(state));
+	strcpy(state, message);
+	
+	for(int i = 1; i < soc_fds_len; i++)
+	{
+		ret = send(soc_fds[i], message, strlen(message), 0);
+		printf("send %s successfully\n", message);
+		if(ret < 0)
+		{
+			perror("fail to update client");
+		
+		}
 	
 	}
 

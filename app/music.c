@@ -92,10 +92,12 @@ int music(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand
 
 			if(pts_point->update == true)
 			{
+				pts_point->update = false;
 				opt = find_which_btn_click(head, pts_point->X, pts_point->Y);
 			}
 			if(pcommand->update == true)
 			{
+				pcommand->update = false;
 				opt = pcommand->ascii[0] - '0';
 			}
 			switch(opt)
@@ -231,7 +233,7 @@ void *gif_routine(void *arg)
 				for(int j = 0; j < 11; j++)
 				{
 					free(gif_jpginfo[j].buff);
-					printf("Y\n");	
+					//printf("Y\n");	
 				}
 				pthread_exit(NULL);
 		

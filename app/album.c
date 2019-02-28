@@ -134,10 +134,12 @@ int album(pLcdInfo_t plcdinfo, struct point *pts_point, struct Command *pcommand
 		{
 			if(pts_point->update == true)
 			{
+				pts_point->update = false;
 				opt = find_which_btn_click(head, pts_point->X, pts_point->Y);
 			}
 			else if(pcommand->update == true)	
 			{
+				pcommand->update = false;
 				opt = pcommand->ascii[0] - '0';
 			
 			}
