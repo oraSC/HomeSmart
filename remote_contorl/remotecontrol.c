@@ -8,8 +8,9 @@
 void *recv_routine(void *arg);
 void *desktop_interface(void *arg);
 void *album_interface(void *arg);
+void *music_interface(void *arg);
 
-bool interface_update, desktop_enable, album_enable;
+bool interface_update, desktop_enable, album_enable, music_enable;
 
 
 int main()
@@ -19,9 +20,10 @@ int main()
 	interface_update = true;
 	desktop_enable = true;
 	album_enable = false;
+	music_enable = false;
 
 	//创建客户端
-	int acc_fd = client_create(3000, "202.192.32.87");
+	int acc_fd = client_create(3000, "202.192.32.63");
 
 	//创建读线程
 	pthread_t recv_pth_id;
@@ -34,6 +36,11 @@ int main()
 	//创建album界面
 	pthread_t album_pth_id;
 	pthread_create(&album_pth_id, NULL, album_interface, &acc_fd);
+
+	//创建album界面
+	pthread_t music_pth_id;
+	pthread_create(&music_pth_id, NULL, music_interface, &acc_fd);
+
 
 	unsigned char command[10];
 	while(1)
@@ -58,7 +65,7 @@ void *desktop_interface(void *arg)
 
 	while(1)
 	{
-		if(interface_update == true && desktop_enable == true && album_enable == false)
+		if(interface_update == true && desktop_enable == true && album_enable == false && music_enable == false)
 		{
 			//清屏
 			printf("\033c");
@@ -84,7 +91,7 @@ void *album_interface(void *arg)
 	while(1)
 	{
 		
-		if(interface_update == true && album_enable == true && desktop_enable == false)
+		if(interface_update == true && album_enable == true && desktop_enable == false && music_enable == false)
 		{
 			//清屏
 			printf("\033c");
@@ -100,6 +107,32 @@ void *album_interface(void *arg)
 
 
 }
+
+void *music_interface(void *arg)
+{
+	
+	int acc_fd = *((int *)arg);
+
+	while(1)
+	{
+		
+		if(interface_update == true && album_enable == false && desktop_enable == false && music_enable == true)
+		{
+			//清屏
+			printf("\033c");
+			printf("-----------------------music-----------------------\n");
+			printf("<1> exit\t<2> last\t<3> next\t<4>play/pause \n");
+			printf("input: ");
+			fflush(stdout);
+			interface_update = false;
+		}
+	
+	
+	}
+
+
+}
+
 
 
 
@@ -135,6 +168,7 @@ void *recv_routine(void *arg)
 			interface_update = true;
 			desktop_enable = true;
 			album_enable = false;
+			music_enable = false;	
 		}
 		else if(strcmp(buff, "album") == 0)
 		{
@@ -142,6 +176,16 @@ void *recv_routine(void *arg)
 			interface_update = true;
 			album_enable = true;
 			desktop_enable = false;
+			music_enable = false;
+		}
+		else if(strcmp(buff, "music") == 0)
+		{
+			interface_update = true;
+			album_enable = false;
+			desktop_enable = false;
+			music_enable = true;
+			
+		
 		}
 		
 	}

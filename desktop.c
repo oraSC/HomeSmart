@@ -164,6 +164,7 @@ int main()
 
 					}
 				}
+
 				
 				//再次刷新桌面
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
