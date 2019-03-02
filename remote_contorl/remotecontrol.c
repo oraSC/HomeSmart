@@ -23,7 +23,7 @@ int main()
 	music_enable = false;
 
 	//创建客户端
-	int acc_fd = client_create(3000, "202.192.32.63");
+	int acc_fd = client_create(3000, "192.168.10.50");
 
 	//创建读线程
 	pthread_t recv_pth_id;
