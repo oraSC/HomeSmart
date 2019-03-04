@@ -17,6 +17,7 @@
 #include "./app/album.h"
 #include "./lib/socket/mysocket.h"
 #include "./app/music.h"
+#include "./app/garage.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
 
@@ -136,7 +137,8 @@ int main()
 			{
 				if(app_num == 3)
 				{
-					break;
+					//break;
+					garage(plcdinfo, &ts_point);
 				}
 				else if(app_num == 1)
 				{
@@ -150,7 +152,7 @@ int main()
 					music(plcdinfo, &ts_point, &command);
 					update_clients("desktop");
 				}
-
+				
 				
 				//再次刷新桌面
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
