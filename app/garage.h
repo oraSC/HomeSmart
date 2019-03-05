@@ -17,7 +17,7 @@ typedef struct Car{
 	int time_hour;
 	int charge;
 
-}Car_t;
+}Car_t, *pCar_t;
 
 
 
@@ -36,8 +36,9 @@ typedef struct Garage_Manage{
 //车库管理主程序
 int garage(pLcdInfo_t plcdinfo, struct point *pts_point);
 
-bool enter_garage(pGarage_Manage_t pgarage_manage, int id);
-int garage_update();
+pCar_t enter_garage(pGarage_Manage_t pgarage_manage, int id);
+pCar_t exit_garage(pGarage_Manage_t pgarage_manage, int id);
+int park_update();
 
 //计算时常、收费信息子线程
 void *charge_routine(void *arg);
