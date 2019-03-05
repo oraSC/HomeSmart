@@ -25,7 +25,7 @@ bug:当ROWs > COLS 出错
 */
 
 pJpgInfo_t	div_jpg(pJpgInfo_t pSrc_jpginfo, int COLS, int ROWS, pJpgInfo_t pdiv_jpginfo[]);
-
+int		select_decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path, int x, int y, int width, int height);
 
 
 

@@ -181,10 +181,6 @@ bool decompress_jpg2bmp(char *src_path, char *dst_path)
 int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height)
 {
 
-	/*
-	 *bug:缩小具有越界的问题
-	 *
-	 */
 
 	//定义dst_pjpginfo
 	dst_pjpginfo->width = width;
@@ -194,8 +190,8 @@ int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int 
 
 
 	//计算比值
-	int ratio_width = 100 * width / src_pjpginfo->width;
-	int ratio_height = 100 * height / src_pjpginfo->height;
+	float ratio_width = (float)(100 * width) / (float)src_pjpginfo->width;
+	float ratio_height = (float)(100 * height) / (float)src_pjpginfo->height;
 
 	//申请空间
 	dst_pjpginfo->buff = malloc(width * height * 3);
@@ -209,10 +205,10 @@ int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int 
 	{
 		for(int cols = 0; cols < width; cols++)
 		{
-			last = rows*100/ratio_height*src_pjpginfo->width * 3 + cols*100/ratio_width*3;	
+			last = (float)(rows*100)/ratio_height*src_pjpginfo->width * 3 + (float)(cols*100)/ratio_width*3;	
 			//printf("%d\n", last);
-			if(last < src_pjpginfo->rowsize * src_pjpginfo->height)
-			memcpy(dst_pjpginfo->buff + rows * dst_pjpginfo->rowsize + cols*3, src_pjpginfo->buff + rows*100/ratio_height*src_pjpginfo->width * 3 + cols*100/ratio_width*3, 3);
+			//if(last < src_pjpginfo->rowsize * src_pjpginfo->height)
+			memcpy(dst_pjpginfo->buff + rows * dst_pjpginfo->rowsize + cols*3, src_pjpginfo->buff + last, 3);
 		}
 	
 	
@@ -271,7 +267,43 @@ pJpgInfo_t div_jpg(pJpgInfo_t pSrc_jpginfo,int COLS, int ROWS, pJpgInfo_t pdiv_j
 }
 
 
+int select_decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path, int x, int y, int width, int height)
+{
 
+	//加载原图
+	JpgInfo_t src_jpginfo;
+	decompress_jpg2buffer(&src_jpginfo, path);
+	
+	//判断区域是否合法
+	if(x > src_jpginfo.width || y > src_jpginfo.height || (x + width) > src_jpginfo.width || (y + height) > src_jpginfo.height)
+	{
+		printf("select zone if outof src jpg\n");
+		return -1;
+	}
+
+	//读取参数
+	pdst_jpginfo->width   = width;
+	pdst_jpginfo->height  = height;
+	pdst_jpginfo->rowsize = width * (src_jpginfo.bicount / 8);
+	pdst_jpginfo->bicount = src_jpginfo.bicount;
+	pdst_jpginfo->buff    = (unsigned char  *)malloc(pdst_jpginfo->rowsize * pdst_jpginfo->height);
+	//读取制定区域
+	//起始点
+	int s_index = x*(src_jpginfo.bicount / 8) + y*src_jpginfo.rowsize;
+	for(int rows = 0; rows < height; rows++)
+	{
+	
+		memcpy(pdst_jpginfo->buff + rows*pdst_jpginfo->rowsize, src_jpginfo.buff + s_index + rows*src_jpginfo.rowsize, pdst_jpginfo->rowsize);	
+	
+	}
+	
+	//释放资源
+	free(src_jpginfo.buff);
+
+	return 0;
+
+
+}
 
 
 
