@@ -18,6 +18,7 @@
 #include "./lib/socket/mysocket.h"
 #include "./app/music.h"
 #include "./app/garage.h"
+#include "./lib/font/font.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
 
@@ -52,6 +53,7 @@ int main()
 {
 
 
+
 	//初始化多路复用待添加集合列表
 	bzero(soc_fds, sizeof(soc_fds));
 	soc_fds_len = 0;
@@ -72,7 +74,8 @@ int main()
 		return -1;
 	}
 	plcdinfo = lcd_create("/dev/fb0", plcdinfo);
-	
+
+
 	//2.打开背景图片
 	pJpgInfo_t bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
 	if(bg_pjpginfo == NULL)
@@ -84,7 +87,7 @@ int main()
 
 	//3.加载背景
 	draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-	
+
 	//*4.加载app图标
 	//**创建按键链表头
 	pBtn_SqList_t head = create_btn_sqlist();

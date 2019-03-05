@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <strings.h>
+#include "../lib/font/font.h"
 #include "../lib/serial/serial.h"
 
 int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
@@ -29,6 +30,9 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	decompress_jpg2buffer(bg_pjpginfo, "./image/garage/bg.jpg");
 	draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 
+	pJpgInfo_t infobg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+	decompress_jpg2buffer(infobg_pjpginfo, "./image/garage/infobg.jpg");
+
 	//加载blank、car
 	pJpgInfo_t blank_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
 	decompress_jpg2buffer(blank_pjpginfo, "./image/garage/blank.jpg");
@@ -43,6 +47,10 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	decompress_jpg2buffer(exit_pjpginfo, "./image/garage/exit.jpg");
 	pBtnInfo_t exit_node = draw_btn(plcdinfo, 730, 0, exit_pjpginfo);
 	AddFromTail_btn_sqlist(head, exit_node);
+
+	//加载车位总数
+	font_print_char(plcdinfo, 750, 60, CAPACITY - garage_manage.num + '0');
+
 
 	//*打开串口1->（进入车库RFID）
 	//*打开串口2->（离开车库RFID）
@@ -115,6 +123,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 				{
 					printf("wlecome\nid:ox%08x\npark_pos:%d\n", pnew_car->id, pnew_car->park_pos);
 					park_update(plcdinfo, car_pjpginfo, pnew_car->park_pos);	
+					info_update(plcdinfo, &garage_manage, infobg_pjpginfo);
 					//sleep(1);
 					
 				
@@ -146,8 +155,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 			}
 			else if(id > 0)
 			{
-				//printf("id:0x%08x\n", id);
-				//进入车库
+				
 				pCar_t pexit_car;
 				pexit_car = exit_garage(&garage_manage, id);
 				if(pexit_car == NULL)
@@ -159,7 +167,8 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 				{
 					printf("byebye:\nid:ox%08x\npark_pos:%d\n", pexit_car->id, pexit_car->park_pos);
 					park_update(plcdinfo, blank_pjpginfo, pexit_car->park_pos);	
-					sleep(1);
+					info_update(plcdinfo, &garage_manage, infobg_pjpginfo);	
+					//sleep(1);
 
 				
 				}
@@ -300,11 +309,58 @@ int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos)
 	
 	}
 	draw_pic(plcdinfo, x, y, pjpginfo);	
-	
+
 	return 0;
+
+}
+
+
+int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t pjpginfo)
+{
+
+	//更新车位数量信息
+	font_print_char(plcdinfo, 750, 60, CAPACITY - pgarage_manage->num + '0');
+
+	//刷背景
+	draw_pic(plcdinfo, 605, 125, pjpginfo);
+
+	//更新各个车辆停车信息
+	for(int i = 0; i < pgarage_manage->num; i ++)
+	{
+		unsigned char info_park[10] = {0};
+		unsigned char info_time[10] = {0};
+
+		//车位
+		sprintf(info_park, "car:%d", pgarage_manage->car[i].park_pos);
+		//时间
+		sprintf(info_time, "%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
+
+		font_print_string(plcdinfo, 605, 125 + i*100, info_park);
+		font_print_string(plcdinfo, 605, 125 + 50 + i*100, info_time);
+
+	
+	}
+
 
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
