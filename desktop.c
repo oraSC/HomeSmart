@@ -75,7 +75,6 @@ int main()
 	}
 	plcdinfo = lcd_create("/dev/fb0", plcdinfo);
 
-
 	//2.打开背景图片
 	pJpgInfo_t bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
 	if(bg_pjpginfo == NULL)

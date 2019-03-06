@@ -205,7 +205,7 @@ int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int 
 	{
 		for(int cols = 0; cols < width; cols++)
 		{
-			last = (float)(rows*100)/ratio_height*src_pjpginfo->width * 3 + (float)(cols*100)/ratio_width*3;	
+			last = (int)(((float)(rows*100))/ratio_height)*src_pjpginfo->width * 3 + (int)((float)(cols*100)/ratio_width)*3;	
 			//printf("%d\n", last);
 			//if(last < src_pjpginfo->rowsize * src_pjpginfo->height)
 			memcpy(dst_pjpginfo->buff + rows * dst_pjpginfo->rowsize + cols*3, src_pjpginfo->buff + last, 3);
