@@ -45,7 +45,7 @@ pJpgInfo_t decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *src_path)
 	pdst_jpginfo->bicount = cinfo.output_components * 8;
 	pdst_jpginfo->buff    = (unsigned char  *)malloc(pdst_jpginfo->rowsize * pdst_jpginfo->height);
 
-	unsigned char *src_buff = malloc(pdst_jpginfo->rowsize);
+	unsigned char *src_buff = (unsigned char *)malloc(pdst_jpginfo->rowsize);
 	unsigned char *row_buff = pdst_jpginfo->buff;
 
 	while(cinfo.output_scanline < cinfo.output_height)
@@ -280,7 +280,7 @@ int select_decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path, int x, int
 		printf("select zone if outof src jpg\n");
 		return -1;
 	}
-
+	
 	//读取参数
 	pdst_jpginfo->width   = width;
 	pdst_jpginfo->height  = height;
@@ -296,7 +296,7 @@ int select_decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path, int x, int
 		memcpy(pdst_jpginfo->buff + rows*pdst_jpginfo->rowsize, src_jpginfo.buff + s_index + rows*src_jpginfo.rowsize, pdst_jpginfo->rowsize);	
 	
 	}
-	
+		
 	//释放资源
 	free(src_jpginfo.buff);
 

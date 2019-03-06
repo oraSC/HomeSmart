@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <pthread.h>
+
 #include "../lib/font/font.h"
 #include "../lib/serial/serial.h"
 
@@ -49,7 +51,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	AddFromTail_btn_sqlist(head, exit_node);
 
 	//加载车位总数
-	font_print_char(plcdinfo, 750, 60, CAPACITY - garage_manage.num + '0');
+	font_print_char(plcdinfo, 750, 60, CAPACITY - garage_manage.num + '0', 50, 50);
 
 
 	//*打开串口1->（进入车库RFID）
@@ -73,6 +75,16 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	serial_setattr(serial1_fd);
 	serial_setattr(serial2_fd);
 	
+
+	//计时计费子线程
+	struct charge_routine_arg c_arg;
+	c_arg.plcdinfo 		= plcdinfo;
+	c_arg.pgarage_manage 	= &garage_manage;
+	c_arg.pjpginfo		= infobg_pjpginfo;
+
+	pthread_t charge_pth_id;
+	pthread_create(&charge_pth_id, NULL, &charge_routine, &c_arg);
+
 
 	printf("RFID starts to work\n");
 	while(1)
@@ -141,7 +153,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 		}
 		else if(ret >= 1)
 		{
-			printf("no card\n");
+			//printf("no card\n");
 			//continue;
 		}
 		else if(ret == 0)
@@ -192,10 +204,55 @@ exit_garage:
 	free(car_pjpginfo);
 	free(exit_pjpginfo->buff);
 	free(exit_pjpginfo);
+	free(infobg_pjpginfo->buff);
+	free(infobg_pjpginfo);
 
 	close(serial1_fd);
 	
 }
+
+
+void *charge_routine(void *arg)
+{
+	//提取结构体参数
+	pLcdInfo_t 	plcdinfo = ((struct charge_routine_arg *)arg)->plcdinfo;
+	pGarage_Manage_t pgarage_manage = ((struct charge_routine_arg *)arg)->pgarage_manage;
+	pJpgInfo_t 	pjpginfo = ((struct charge_routine_arg *)arg)->pjpginfo;
+
+	while(1)
+	{
+		//JpgInfo_t temp_jpginfo;
+		//select_decompress_jpg2buffer(&temp_jpginfo, "./image/desktop/a_z.jpg", 0, 0, 50, 50);
+		//free(temp_jpginfo.buff);
+
+		sleep(1);
+		for(int i = 0; i < pgarage_manage->num; i++)
+		{
+			pgarage_manage->car[i].time_sec ++;
+			
+			//时间进位
+			if(pgarage_manage->car[i].time_sec >= 60)
+			{
+				pgarage_manage->car[i].time_sec = 0;
+				pgarage_manage->car[i].time_min ++;
+				if(pgarage_manage->car[i].time_min >= 60)
+				{
+					pgarage_manage->car[i].time_min = 0;
+					pgarage_manage->car[i].time_hour ++;
+				
+				}
+			
+			}
+		
+		
+		}
+		//更新界面
+		info_update(plcdinfo, pgarage_manage, pjpginfo);	
+	}
+
+}
+
+
 
 
 pCar_t enter_garage(pGarage_Manage_t pgarage_manage, int id)
@@ -318,8 +375,12 @@ int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos)
 int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t pjpginfo)
 {
 
+	int width = 30;
+	int height = 30;
+	
+	
 	//更新车位数量信息
-	font_print_char(plcdinfo, 750, 60, CAPACITY - pgarage_manage->num + '0');
+	font_print_char(plcdinfo, 750, 60, CAPACITY - pgarage_manage->num + '0', 50, 50);
 
 	//刷背景
 	draw_pic(plcdinfo, 605, 125, pjpginfo);
@@ -335,8 +396,8 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 		//时间
 		sprintf(info_time, "%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
 
-		font_print_string(plcdinfo, 605, 125 + i*100, info_park);
-		font_print_string(plcdinfo, 605, 125 + 50 + i*100, info_time);
+		font_print_string(plcdinfo, 605, 125 + i*height*2, info_park, width, height);
+		font_print_string(plcdinfo, 605, 125 + height + i*height*2, info_time, width, height);
 
 	
 	}

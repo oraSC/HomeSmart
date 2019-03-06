@@ -52,7 +52,19 @@ char state[20];
 int main()
 {
 
+	JpgInfo_t temp_jpginfo;
+	//
+	while(1)
+	{
+		decompress_jpg2buffer(&temp_jpginfo, "./image/desktop/bg.jpg");
+		free(temp_jpginfo.buff);
+		sleep(1);
+	}
 
+
+
+	//
+	while(1);
 
 	//初始化多路复用待添加集合列表
 	bzero(soc_fds, sizeof(soc_fds));

@@ -41,6 +41,12 @@ pCar_t exit_garage(pGarage_Manage_t pgarage_manage, int id);
 int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos);
 int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage, pJpgInfo_t pjpginfo);
 
+struct charge_routine_arg{
+
+	pLcdInfo_t 		plcdinfo;
+	pGarage_Manage_t 	pgarage_manage;
+	pJpgInfo_t		pjpginfo;
+};
 
 //计算时常、收费信息子线程
 void *charge_routine(void *arg);
