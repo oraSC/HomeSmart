@@ -49,6 +49,11 @@ int soc_fds[10];
 int soc_fds_len;
 int max_fd;
 
+//线程互斥锁、条件变量
+pthread_mutex_t mutex;
+pthread_cond_t	cond;
+
+
 //声明状态值(记录当前处于的功能)
 char state[20];
 
@@ -103,78 +108,102 @@ int main()
 		AddFromTail_btn_sqlist(head, newnode);
 		
 	}
-	//5.创建触摸屏监控子线程
+	
+	//5.初始化互斥锁和条件变量、创建触摸屏监控和socket通讯子线程
+	ret = pthread_mutex_init(&mutex, NULL);
+	if(ret < 0)
+	{
+		perror("fail to init mutex");
+		goto err;
+	}
+	
+	ret = pthread_cond_init(&cond, NULL);
+	if(ret < 0)
+	{
+		perror("fail to init cond");
+		goto err;
+	}
+
 	pthread_t ts_pth_id;
-	pthread_create(&ts_pth_id, NULL, ts_monitor, NULL);
-	
-	//创建socket通讯子线程
-	
+	ret = pthread_create(&ts_pth_id, NULL, ts_monitor, NULL);
+	if(ret < 0)
+	{
+		perror("fail to create ts_monitor pthread");
+		goto err;
+	}
 	
 	pthread_t soc_pth_id;
-	pthread_create(&soc_pth_id, NULL, remote_control, NULL);
-	
+	ret = pthread_create(&soc_pth_id, NULL, remote_control, NULL);
+	if(ret < 0)
+	{
+		perror("fail to create remote control pthread");
+		goto err;
+	}
+
 	//*6.读取按键
 	int app_num = 0;
 
 	while(1)
 	{
 		
-		/*
-		 *backlog:加入线程互次锁，保护数据
-		 *
-		 */
-		if(ts_point.update == true || command.update == true)
-		{	
-			if(ts_point.update == true)
+		/************************上锁**************************************/
+		pthread_mutex_lock(&mutex);
+		
+		while(ts_point.update != true && command.update != true)
+		{
+			//挂起等待
+			pthread_cond_wait(&cond, &mutex);
+		}
+		
+		//检测到用户动作
+		if(ts_point.update == true)
+		{
+			ts_point.update = false;
+			app_num = find_which_btn_click(head, ts_point.X, ts_point.Y);
+		}
+		else if(command.update == true)
+		{
+			command.update = false;
+			app_num = command.ascii[0] - '0';
+		}
+		
+		pthread_mutex_unlock(&mutex);
+		/***************************解锁*************************************/
+		if(app_num != 0)
+		{
+			
+			if(app_num == 4)
 			{
-				ts_point.update = false;
-				app_num = find_which_btn_click(head, ts_point.X, ts_point.Y);
-			}
-			else if(command.update == true)
-			{
-				command.update = false;
-				app_num = command.ascii[0] - '0';
-			}
-			if(app_num != 0)
-			{
-				
-				if(app_num == 4)
-				{
-					break;
-				
-				}
-				
-				else if(app_num == 3)
-				{
-					garage(plcdinfo, &ts_point);
-				}
-				else if(app_num == 1)
-				{
-					update_clients("album");	
-					album(plcdinfo, &ts_point, &command);
-					update_clients("desktop");
-				}
-				else if(app_num == 2)
-				{
-					update_clients("music");	
-					music(plcdinfo, &ts_point, &command);
-					update_clients("desktop");
-				}
-				
-				
-				//再次刷新桌面
-				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-				for(int i = 0; i < APP_NUM; i++)
-				{
-					draw_pic(plcdinfo, i*150 + 100, 100, &app_jpginfo[i]);
-				
-				}
-							
+				break;
+			
 			}
 			
-			//ts_point.update = false;	
-			//command.update = false;
-		
+			else if(app_num == 3)
+			{
+				garage(plcdinfo, &ts_point);
+			}
+			else if(app_num == 1)
+			{
+				update_clients("album");	
+				album(plcdinfo, &ts_point, &command);
+				update_clients("desktop");
+			}
+			else if(app_num == 2)
+			{
+				update_clients("music");	
+				music(plcdinfo, &ts_point, &command);
+				update_clients("desktop");
+			}
+			
+			
+			//再次刷新桌面
+			draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+			for(int i = 0; i < APP_NUM; i++)
+			{
+				draw_pic(plcdinfo, i*150 + 100, 100, &app_jpginfo[i]);
+			
+			}
+						
 		}
 	
 	}
@@ -186,16 +215,28 @@ int main()
 	//释放背景图片资源
 	free(bg_pjpginfo->buff);
 	free(bg_pjpginfo);
-
+	for(int i = 0; i < APP_NUM; i++)
+	{
+		free(app_jpginfo[i].buff);
+	}
 	//清空链表
-	
-
 
 	//销毁链表
 	destroy_btn_sqlist(&head);
 	
 	printf("HomeSmart desktop exit\n");
 	return 0;
+err:
+	lcd_destroy(plcdinfo);
+	free(bg_pjpginfo->buff);
+	free(bg_pjpginfo);
+	for(int i = 0; i < APP_NUM; i++)
+	{
+		free(app_jpginfo[i].buff);
+	}
+	destroy_btn_sqlist(&head);
+	printf("HomeSmart desktop exit because of error\n");
+	return -1;
 
 }
 
@@ -225,6 +266,9 @@ void *ts_monitor(void *arg)
 			pthread_exit(NULL);
 		
 		}
+		/************************上锁********************************/
+		pthread_mutex_lock(&mutex);
+
 		//X
 		if(tsinfo.type == EV_ABS && tsinfo.code == ABS_X)
 		{
@@ -244,8 +288,11 @@ void *ts_monitor(void *arg)
 			ts_point.lastX= ts_point.X;
 			ts_point.lastY = ts_point.Y;
 			ts_point.update = true;
+			pthread_cond_signal(&cond);
 		}
-
+		
+		pthread_mutex_unlock(&mutex);
+		/************************解锁*********************************/
 	}
 
 }
@@ -301,8 +348,6 @@ void *remote_control(void *arg)
 	int client_addr_len = sizeof(client_addr);
 	bzero(&client_addr, client_addr_len);
 	
-
-
 	//将监听套接字(soc_fd)加入待待添加集合列表(应该用链表代替)
 	soc_fds[soc_fds_len] = soc_fd;
 	max_fd = FIND_MAX_FD(soc_fd, max_fd);
@@ -372,6 +417,9 @@ void *remote_control(void *arg)
 			{
 				if(FD_ISSET(soc_fds[j], &fdset))
 				{
+					/*******************上锁*********************/
+					pthread_mutex_lock(&mutex);
+
 					bzero(command.ascii, sizeof(command.ascii));
 		
 					ret = recv(soc_fds[j], &command.ascii, sizeof(command.ascii), 0);
@@ -382,6 +430,7 @@ void *remote_control(void *arg)
 						//在集合中删除
 						soc_fds[j] = soc_fds[soc_fds_len - 1];
 						soc_fds_len--;
+						
 					}
 					else if(ret == 0)
 					{
@@ -390,10 +439,18 @@ void *remote_control(void *arg)
 						//在集合中删去
 						soc_fds[j] = soc_fds[soc_fds_len - 1];
 						soc_fds_len--;
-
 					}
-					printf("command:%s\n", command.ascii);
-					command.update = true;	
+					else 
+					{
+						printf("command:%s\n", command.ascii);
+						command.update = true;
+						
+						//发送信号给条件变量
+						pthread_cond_signal(&cond);
+					}
+
+					pthread_mutex_unlock(&mutex);
+					/*******************解锁************************/
 				}
 			}
 		}
