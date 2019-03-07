@@ -11,7 +11,7 @@ int font_print_char(pLcdInfo_t plcdinfo, int x, int y, unsigned char ch, int wid
 	unsigned char jpgpath[30] = {0};
 
 	//数字
-	if(ch >= '0' && ch <= ':')
+	if((ch >= '0' && ch <= ':' )|| ch == '$')
 	{
 		reference_ch = '0';
 		strcpy(jpgpath, "./image/desktop/num.jpg");
@@ -26,8 +26,14 @@ int font_print_char(pLcdInfo_t plcdinfo, int x, int y, unsigned char ch, int wid
 		printf("ch can't be found in font lib\n");
 		return -1;
 	}
-
+	
+	
 	int ch_x = 50 * (ch - reference_ch);
+	if(ch == '$')
+	{
+		ch_x = 50*11;
+
+	}
 	int ch_y = 0;
 
 	//原图

@@ -229,6 +229,10 @@ void *charge_routine(void *arg)
 	{
 		
 		sleep(1);
+		/*
+		 *backlog:全刷方式效率低，屏幕闪屏，采取部分刷新
+		 */
+
 		for(int i = 0; i < pgarage_manage->num; i++)
 		{
 			pgarage_manage->car[i].time_sec ++;
@@ -238,13 +242,16 @@ void *charge_routine(void *arg)
 			{
 				pgarage_manage->car[i].time_sec = 0;
 				pgarage_manage->car[i].time_min ++;
+				//费用
+				pgarage_manage->car[i].charge ++;
+
 				if(pgarage_manage->car[i].time_min >= 60)
 				{
 					pgarage_manage->car[i].time_min = 0;
 					pgarage_manage->car[i].time_hour ++;
 				
 				}
-			
+				
 			}
 		
 		
@@ -395,17 +402,20 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 	//更新各个车辆停车信息
 	for(int i = 0; i < pgarage_manage->num; i ++)
 	{
-		unsigned char info_park[10] = {0};
-		unsigned char info_time[10] = {0};
+		unsigned char info_park[10] 	= {0};
+		unsigned char info_time[10] 	= {0};
+		unsigned char info_charge[10] 	= {0};
 
 		//车位
 		sprintf(info_park, "car:%d", pgarage_manage->car[i].park_pos);
 		//时间
 		sprintf(info_time, "%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
+		//费用
+		sprintf(info_charge, "$:%d", pgarage_manage->car[i].charge);
 
-		font_print_string(plcdinfo, 605, 125 + i*height*2, info_park, width, height);
-		font_print_string(plcdinfo, 605, 125 + height + i*height*2, info_time, width, height);
-
+		font_print_string(plcdinfo, 605, 125 + i*height*3, info_park, width, height);
+		font_print_string(plcdinfo, 605, 125 + height + i*height*3, info_time, width, height);
+		font_print_string(plcdinfo, 605, 125 + height*2 + i*height*3, info_charge, width, height);
 	
 	}
 
