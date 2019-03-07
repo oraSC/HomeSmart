@@ -235,6 +235,8 @@ err:
 	{
 		free(app_jpginfo[i].buff);
 	}
+	
+	clear_btn_sqlist(&head);
 	destroy_btn_sqlist(&head);
 	printf("HomeSmart desktop exit because of error\n");
 	return -1;
@@ -479,11 +481,6 @@ void update_clients(char *message)
 		}
 	
 	}
-
-
-
-
-
 
 }
 
