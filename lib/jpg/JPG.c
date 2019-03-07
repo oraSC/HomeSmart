@@ -70,7 +70,12 @@ pJpgInfo_t decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *src_path)
 	free(src_buff);
 
 	fclose(src_file);
+
+	//完成解压
+	jpeg_finish_decompress(&cinfo);
 	
+	//销毁解压对象
+	jpeg_destroy_decompress(&cinfo);
 
 	return pdst_jpginfo;
 
@@ -174,6 +179,14 @@ bool decompress_jpg2bmp(char *src_path, char *dst_path)
 	free(dst_buff);
 	fclose(src_file);
 	fclose(dst_file);	
+
+
+	//完成解压
+	jpeg_finish_decompress(&cinfo);
+	
+	//销毁解压对象
+	jpeg_destroy_decompress(&cinfo);
+
 
 	return 0;
 }
