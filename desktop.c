@@ -188,7 +188,7 @@ int main()
 	free(bg_pjpginfo);
 
 	//清空链表
-	
+	clear_btn_sqlist(&head);	
 
 
 	//销毁链表
