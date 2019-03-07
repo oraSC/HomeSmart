@@ -21,6 +21,9 @@
 #include "./lib/font/font.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
+#define APP_NUM 	4
+
+
 
 /*
 struct point{
@@ -51,21 +54,7 @@ char state[20];
 
 int main()
 {
-
-	JpgInfo_t temp_jpginfo;
-	//
-	while(1)
-	{
-		decompress_jpg2buffer(&temp_jpginfo, "./image/desktop/bg.jpg");
-		free(temp_jpginfo.buff);
-		sleep(1);
-	}
-
-
-
-	//
-	while(1);
-
+	
 	//初始化多路复用待添加集合列表
 	bzero(soc_fds, sizeof(soc_fds));
 	soc_fds_len = 0;
@@ -76,7 +65,7 @@ int main()
 
 	int ret;
 
-	char app_icon_name[3][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg", "./image/desktop/exit.jpg"};
+	char app_icon_name[APP_NUM][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg", "./image/desktop/garage.jpg", "./image/desktop/exit.jpg"};
 
 	//1.创建lcd
 	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
@@ -104,8 +93,8 @@ int main()
 	pBtn_SqList_t head = create_btn_sqlist();
 
 	//**添加按键
-	JpgInfo_t app_jpginfo[3];
-	for(int i = 0; i < 3; i++)
+	JpgInfo_t app_jpginfo[APP_NUM];
+	for(int i = 0; i < APP_NUM; i++)
 	{
 		
 		decompress_jpg2buffer(&app_jpginfo[i], app_icon_name[i]);
@@ -126,7 +115,6 @@ int main()
 	
 	//*6.读取按键
 	int app_num = 0;
-	char app[][20] = {"./app/album", "./app/2"};
 
 	while(1)
 	{
@@ -149,9 +137,15 @@ int main()
 			}
 			if(app_num != 0)
 			{
-				if(app_num == 3)
+				
+				if(app_num == 4)
 				{
-					//break;
+					break;
+				
+				}
+				
+				else if(app_num == 3)
+				{
 					garage(plcdinfo, &ts_point);
 				}
 				else if(app_num == 1)
@@ -170,12 +164,12 @@ int main()
 				
 				//再次刷新桌面
 				draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-				draw_pic(plcdinfo, 100, 100, &app_jpginfo[0]);
-				draw_pic(plcdinfo, 250, 100, &app_jpginfo[1]);
-				draw_pic(plcdinfo, 400, 100, &app_jpginfo[2]);
-
-				printf("%d app\n", app_num);
+				for(int i = 0; i < APP_NUM; i++)
+				{
+					draw_pic(plcdinfo, i*150 + 100, 100, &app_jpginfo[i]);
 				
+				}
+							
 			}
 			
 			//ts_point.update = false;	
@@ -192,7 +186,11 @@ int main()
 	//释放背景图片资源
 	free(bg_pjpginfo->buff);
 	free(bg_pjpginfo);
+
+	//清空链表
 	
+
+
 	//销毁链表
 	destroy_btn_sqlist(&head);
 	

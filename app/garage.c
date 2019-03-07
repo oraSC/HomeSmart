@@ -206,6 +206,12 @@ exit_garage:
 	free(exit_pjpginfo);
 	free(infobg_pjpginfo->buff);
 	free(infobg_pjpginfo);
+	
+	//杀死子线程
+	pthread_cancel(charge_pth_id);
+
+	//等子线程退出
+	pthread_join(charge_pth_id, NULL);
 
 	close(serial1_fd);
 	
@@ -221,10 +227,7 @@ void *charge_routine(void *arg)
 
 	while(1)
 	{
-		//JpgInfo_t temp_jpginfo;
-		//select_decompress_jpg2buffer(&temp_jpginfo, "./image/desktop/a_z.jpg", 0, 0, 50, 50);
-		//free(temp_jpginfo.buff);
-
+		
 		sleep(1);
 		for(int i = 0; i < pgarage_manage->num; i++)
 		{
@@ -246,6 +249,10 @@ void *charge_routine(void *arg)
 		
 		
 		}
+		/*
+		 *bug:如何解决pthread_cancel造成的资源未释放(在调用函数内部有堆内存操作)
+		 */
+
 		//更新界面
 		info_update(plcdinfo, pgarage_manage, pjpginfo);	
 	}
