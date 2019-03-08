@@ -132,12 +132,8 @@ int main()
 		goto err;
 	}
 	
-	//创建套接字
-	int soc_fd;
-	soc_server_init(&soc_fd, NULL, 3000);
-
 	pthread_t soc_pth_id;
-	ret = pthread_create(&soc_pth_id, NULL, remote_control, &soc_fd);
+	ret = pthread_create(&soc_pth_id, NULL, remote_control, NULL);
 	if(ret < 0)
 	{
 		perror("fail to create remote control pthread");
@@ -185,21 +181,9 @@ int main()
 			//车库	
 			else if(app_num == 3)
 			{
-
-				/**************************上锁*****************************/
-				pthread_mutex_lock(&mutex);
-				
-				//标志状态,remote_control将在第一次有客户端连接的时候挂起
 				strcpy(state, "garage");
-				
-				pthread_mutex_unlock(&mutex);
-				/*************************解锁***************************/
-				
-				garage(plcdinfo, &ts_point, soc_fd);
+				garage(plcdinfo, &ts_point);
 				strcpy(state, "desktop");
-				
-				//唤醒remote_control
-				pthread_cond_signal(&cond);
 			}
 
 			else if(app_num == 1)
@@ -256,6 +240,14 @@ err:
 		free(app_jpginfo[i].buff);
 	}
 	
+	//关闭文件描述符中的soc_fd
+	for(int i = 0; i < soc_fds_len; i++)
+	{
+		shutdown(soc_fds[i], SHUT_RDWR);
+	
+	}
+	soc_fds_len = 0;
+
 	clear_btn_sqlist(&head);
 	destroy_btn_sqlist(&head);
 	printf("HomeSmart desktop exit because of error\n");
@@ -332,8 +324,10 @@ void *remote_control(void *arg)
 	 */
 	pthread_detach(pthread_self());
 
-	//转化参数
-	int soc_fd = *((int *)arg); 
+	//创建套接字
+	int soc_fd;
+	soc_server_init(&soc_fd, NULL, 3000);
+
 
 	//等待对端连接请求
 	//1.声明变量存储对端信息
@@ -364,7 +358,7 @@ void *remote_control(void *arg)
 			FD_SET(soc_fds[i], &fdset);
 
 		}
-		printf("len:%d\n", soc_fds_len);	
+		
 		//多路复用
 		ret = select(max_fd+1, &fdset, NULL, NULL, NULL);
 		if(ret < 0)
@@ -378,7 +372,9 @@ void *remote_control(void *arg)
 			continue;
 		}
 		
+		
 		/**********************上锁********************************/
+		/*
 		pthread_mutex_lock(&mutex);
 
 		//判断当前状态是否为garage
@@ -394,8 +390,10 @@ void *remote_control(void *arg)
 		}
 		
 		pthread_mutex_unlock(&mutex);
+		*/
 		/***********************解锁********************************/
 		
+
 		//有新的客户端连接请求
 		if(FD_ISSET(soc_fd, &fdset))
 		{
@@ -406,7 +404,8 @@ void *remote_control(void *arg)
 				perror("error exits when accept client connect");
 				//return -1;
 			}
-
+			
+			printf("/**********************desktop server**********************/\n");
 			printf("connecting with client.\nip: %s, port: %hd\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 			//发送当前状态值
 			ret = send(acc_fd, state, strlen(state), 0);
@@ -454,7 +453,7 @@ void *remote_control(void *arg)
 					}
 					else 
 					{
-						printf("command:%s\n", command.ascii);
+						printf("command:%s", command.ascii);
 						command.update = true;
 						
 						//发送信号给条件变量

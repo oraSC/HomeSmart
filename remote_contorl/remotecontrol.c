@@ -21,38 +21,71 @@ int main()
 	desktop_enable = true;
 	album_enable = false;
 	music_enable = false;
-
-	//创建客户端
-	int acc_fd = client_create(3000, "202.192.32.92");
-
-	//创建读线程
-	pthread_t recv_pth_id;
-	pthread_create(&recv_pth_id, NULL, recv_routine, &acc_fd);
-
-	//创建desktop界面
-	pthread_t desktop_pth_id;
-	pthread_create(&desktop_pth_id, NULL, desktop_interface, &acc_fd);
 	
-	//创建album界面
-	pthread_t album_pth_id;
-	pthread_create(&album_pth_id, NULL, album_interface, &acc_fd);
+	printf("\033c");
+	printf("-------------------------HomeSmart---------------------\n");
+	printf("<1> control\t<2> check information\ninput:");
+	fflush(stdout);
 
-	//创建album界面
-	pthread_t music_pth_id;
-	pthread_create(&music_pth_id, NULL, music_interface, &acc_fd);
-
-
-	unsigned char command[10];
-	while(1)
+	char choose[2];
+	fgets(choose, 2, stdin);
+	if(choose[0] == '2')
 	{
-		bzero(command, sizeof(command));
+		//创建客户端
+		int acc_fd = client_create(4000, "202.192.32.92");
+		unsigned char command[10];
+		while(1)
+		{
+			printf("\033c");
+			printf("--------------------garage check infomation-------------\n");
+			printf("please input your card id:");
+			fflush(stdout);
+
+			bzero(command, sizeof(command));
+			
+			fgets(command, sizeof(command), stdin);
+			send(acc_fd, &command, strlen(command), 0);
 		
-		fgets(command, sizeof(command), stdin);
-		send(acc_fd, &command, strlen(command), 0);
-		interface_update = true;
+		}
+
 	
 	}
+	else {
 
+
+
+		//创建客户端
+		int acc_fd = client_create(3000, "202.192.32.92");
+
+		//创建读线程
+		pthread_t recv_pth_id;
+		pthread_create(&recv_pth_id, NULL, recv_routine, &acc_fd);
+
+		//创建desktop界面
+		pthread_t desktop_pth_id;
+		pthread_create(&desktop_pth_id, NULL, desktop_interface, &acc_fd);
+		
+		//创建album界面
+		pthread_t album_pth_id;
+		pthread_create(&album_pth_id, NULL, album_interface, &acc_fd);
+
+		//创建album界面
+		pthread_t music_pth_id;
+		pthread_create(&music_pth_id, NULL, music_interface, &acc_fd);
+
+
+		unsigned char command[10];
+		while(1)
+		{
+			bzero(command, sizeof(command));
+			
+			fgets(command, sizeof(command), stdin);
+			send(acc_fd, &command, strlen(command), 0);
+			interface_update = true;
+		
+		}
+
+	}
 	return 0;
 		
 }
