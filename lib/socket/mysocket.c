@@ -198,7 +198,12 @@ int soc_server_init(int *psoc_fd, unsigned char *s_ip, int s_port)
 
 	server_addr.sin_family 	= AF_INET;
 	server_addr.sin_port	= htons(s_port);
-	
+
+	//设置允许重用本地地址和端口
+	int reuseaddr_enable = 1;
+	setsockopt(*psoc_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_enable, sizeof(reuseaddr_enable));
+
+
 	if(s_ip != NULL)
 	{
 		server_addr.sin_addr.s_addr	= inet_addr(s_ip);
