@@ -7,11 +7,25 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <pthread.h>
+#include <arpa/inet.h>
+#include <string.h>
 
 #include "../lib/font/font.h"
 #include "../lib/serial/serial.h"
 
-int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
+#define FIND_MAX_FD(x,y) (x)>(y)?(x):(y)
+
+//声明待添加集合列表
+/*
+ *不声明static会被其他源文件使用？？？？
+ */
+static int soc_fds[10];
+static int soc_fds_len;
+static int max_fd;
+
+extern char state[20];
+
+int garage(pLcdInfo_t plcdinfo, struct point *pts_point, int soc_fd)
 {
 
 	int ret;
@@ -85,6 +99,17 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	pthread_t charge_pth_id;
 	pthread_create(&charge_pth_id, NULL, &charge_routine, &c_arg);
 
+	//初始化多路复用待添加集合列表、创建远程查询信息子线程
+	bzero(soc_fds, sizeof(soc_fds));
+	soc_fds_len = 0;
+	max_fd = -1;
+
+	struct checkinfo_routine_arg ci_arg;
+	ci_arg.pgarage_manage	= &garage_manage;
+	ci_arg.soc_fd		= soc_fd;
+
+	pthread_t checkinfo_pth_id;
+	pthread_create(&checkinfo_pth_id, NULL, check_info_routine, &ci_arg);
 
 	printf("RFID starts to work\n");
 	while(1)
@@ -209,9 +234,11 @@ exit_garage:
 	
 	//杀死子线程
 	pthread_cancel(charge_pth_id);
+	pthread_cancel(checkinfo_pth_id);
 
 	//等子线程退出
 	pthread_join(charge_pth_id, NULL);
+	pthread_join(checkinfo_pth_id, NULL);
 
 	close(serial1_fd);
 	
@@ -424,6 +451,144 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 }
 
 
+void *check_info_routine(void *arg)
+{
+
+	int ret;
+
+	//线程分离
+	/*
+	 *bug:许多soc文件描述符未正常关闭
+	 *
+	 */
+	//pthread_detach(pthread_self());
+
+	//转化参数
+	int soc_fd = ((struct checkinfo_routine_arg *)arg)->soc_fd; 
+	pGarage_Manage_t pgarage_manage = ((struct checkinfo_routine_arg *)arg)->pgarage_manage;
+
+	//等待对端连接请求
+	//1.声明变量存储对端信息
+	struct sockaddr_in client_addr;
+	int client_addr_len = sizeof(client_addr);
+	bzero(&client_addr, client_addr_len);
+	
+	
+	//将监听套接字(soc_fd)加入待待添加集合列表(应该用链表代替)
+	soc_fds[soc_fds_len] = soc_fd;
+	max_fd = FIND_MAX_FD(soc_fd, max_fd);
+	soc_fds_len++;
+
+	char buff[100];
+
+	fd_set fdset;
+
+	//发收信息
+	while(1)
+	{
+		bzero(buff, sizeof(buff));
+
+		//配置多路复用描述符集
+		FD_ZERO(&fdset);
+
+		//将待添加集合列表添加
+		for(int i = 0; i < soc_fds_len; i++)
+		{
+			FD_SET(soc_fds[i], &fdset);
+
+		}
+		
+		//多路复用
+		ret = select(max_fd+1, &fdset, NULL, NULL, NULL);
+		if(ret < 0)
+		{
+			perror("error exits in select");
+			//return -1;
+		}
+		else if(ret == 0)
+		{
+			printf("timeout\n");
+			continue;
+		}
+		
+		//有新的客户端连接请求
+		if(FD_ISSET(soc_fd, &fdset))
+		{
+		
+			int acc_fd = accept(soc_fd, (struct sockaddr *)&client_addr, &client_addr_len);
+			if(acc_fd < 0)
+			{
+				perror("error exits when accept client connect");
+				//return -1;
+			}
+
+			printf("connecting with client.\nip: %s, port: %hd\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+			//发送当前状态值
+			ret = send(acc_fd, state, strlen(state), 0);
+			if(ret < 0)
+			{
+				perror("error exits in send state when accept");
+			
+			}
+
+			//更新待添加集合列表
+			soc_fds[soc_fds_len] = acc_fd;
+			max_fd = FIND_MAX_FD(acc_fd, max_fd);
+			soc_fds_len++;
+
+		}
+		//从客户端接受消息
+		else
+		{
+			for(int j = 1; j < soc_fds_len; j++)
+			{
+				if(FD_ISSET(soc_fds[j], &fdset))
+				{
+					bzero(buff, sizeof(buff));				
+
+					ret = recv(soc_fds[j], buff, sizeof(buff), 0);
+					if(ret < 0)
+					{
+						perror("error exists in recv");
+						shutdown(soc_fds[j], SHUT_RDWR);
+						soc_fds[j] = soc_fds[soc_fds_len - 1];
+						soc_fds_len--;
+					}
+					else if(ret == 0)
+					{
+						printf("a client offlines");
+						shutdown(soc_fds[j], SHUT_RDWR);
+						soc_fds[j] = soc_fds[soc_fds_len - 1];
+						soc_fds_len--;
+					}
+					else
+					{
+						
+						printf("num:%d\n", pgarage_manage->num);
+						//遍历查询车库管理器中是否有该id
+						for(int m = 0; m < pgarage_manage->num; m++)
+						{
+							unsigned char tmp[10] = {0};
+							sprintf(tmp, "%08x", pgarage_manage->car[m].id);
+							printf("now:%s\n", tmp);
+							printf("buff:%s", buff);
+							printf("cmp:%d\n", strncmp(tmp, buff, strlen(buff)-1));
+							if(strncmp(tmp, buff, strlen(buff)-1) == 0)
+							{
+								printf("charge:%d\n", pgarage_manage->car[m].charge);
+								break;
+							}
+						
+						
+						}
+						
+					}
+
+				}
+			}
+		}
+	}
+}
 
 
 

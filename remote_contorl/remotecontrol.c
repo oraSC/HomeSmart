@@ -23,7 +23,7 @@ int main()
 	music_enable = false;
 
 	//创建客户端
-	int acc_fd = client_create(3000, "202.192.32.56");
+	int acc_fd = client_create(3000, "202.192.32.92");
 
 	//创建读线程
 	pthread_t recv_pth_id;
@@ -151,7 +151,7 @@ void *recv_routine(void *arg)
 		if(ret < 0)
 		{
 			perror("error exits in recv");
-		
+			break;	
 		}
 		if(ret == 0)
 		{

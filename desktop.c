@@ -132,8 +132,12 @@ int main()
 		goto err;
 	}
 	
+	//创建套接字
+	int soc_fd;
+	soc_server_init(&soc_fd, NULL, 3000);
+
 	pthread_t soc_pth_id;
-	ret = pthread_create(&soc_pth_id, NULL, remote_control, NULL);
+	ret = pthread_create(&soc_pth_id, NULL, remote_control, &soc_fd);
 	if(ret < 0)
 	{
 		perror("fail to create remote control pthread");
@@ -177,11 +181,27 @@ int main()
 				break;
 			
 			}
-			
+
+			//车库	
 			else if(app_num == 3)
 			{
-				garage(plcdinfo, &ts_point);
+
+				/**************************上锁*****************************/
+				pthread_mutex_lock(&mutex);
+				
+				//标志状态,remote_control将在第一次有客户端连接的时候挂起
+				strcpy(state, "garage");
+				
+				pthread_mutex_unlock(&mutex);
+				/*************************解锁***************************/
+				
+				garage(plcdinfo, &ts_point, soc_fd);
+				strcpy(state, "desktop");
+				
+				//唤醒remote_control
+				pthread_cond_signal(&cond);
 			}
+
 			else if(app_num == 1)
 			{
 				update_clients("album");	
@@ -303,47 +323,17 @@ void *ts_monitor(void *arg)
 void *remote_control(void *arg)
 {
 
+	int ret;
+
 	//线程分离
+	/*
+	 *bug:许多soc文件描述符未正常关闭
+	 *
+	 */
 	pthread_detach(pthread_self());
 
-	int ret;
-	
-	//创建socket(套接字)
-	int soc_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if(soc_fd < 0)
-	{
-		perror("fail to create socket");
-		pthread_exit(NULL);
-	}
-
-	//绑定套接字与网络地址
-	//1.初始化服务器 IPv4 地址结构体
-	struct sockaddr_in server_addr;
-	int server_addr_len = sizeof(server_addr);
-	bzero(&server_addr, server_addr_len);
-
-	server_addr.sin_family 	= AF_INET;
-	server_addr.sin_port	= htons(3000);
-	//server_addr.sin_addr.s_addr	= inet_addr("192.168.10.31");
-	htonl(INADDR_ANY);	
-
-	//2.绑定
-	ret = bind(soc_fd, (struct sockaddr *)&server_addr, server_addr_len);
-	if(ret < 0)
-	{
-		perror("fail to bind socket");
-		//return -1;
-	}
-	
-	//将待链接套接字设置为监听套接字
-	ret = listen(soc_fd, 5);
-	if(ret < 0)
-	{
-		perror("error exits in listen");
-		//return -1;
-	}
-
-	printf("server is waiting for connection\n");
+	//转化参数
+	int soc_fd = *((int *)arg); 
 
 	//等待对端连接请求
 	//1.声明变量存储对端信息
@@ -374,7 +364,7 @@ void *remote_control(void *arg)
 			FD_SET(soc_fds[i], &fdset);
 
 		}
-		
+		printf("len:%d\n", soc_fds_len);	
 		//多路复用
 		ret = select(max_fd+1, &fdset, NULL, NULL, NULL);
 		if(ret < 0)
@@ -387,10 +377,29 @@ void *remote_control(void *arg)
 			printf("timeout\n");
 			continue;
 		}
-		//有新的客户端连接请求
-		else if(FD_ISSET(soc_fd, &fdset))
+		
+		/**********************上锁********************************/
+		pthread_mutex_lock(&mutex);
+
+		//判断当前状态是否为garage
+		while(strcmp(state, "garage") == 0)
 		{
-				
+			//挂起
+			printf("into garage, remote control sleep\n");
+			pthread_cond_wait(&cond, &mutex);
+			printf("outof garage, remote control wakeup\n");
+			
+			//清空多路复用描述集
+			FD_ZERO(&fdset);
+		}
+		
+		pthread_mutex_unlock(&mutex);
+		/***********************解锁********************************/
+		
+		//有新的客户端连接请求
+		if(FD_ISSET(soc_fd, &fdset))
+		{
+		
 			int acc_fd = accept(soc_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 			if(acc_fd < 0)
 			{

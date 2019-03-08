@@ -34,7 +34,7 @@ typedef struct Garage_Manage{
 
 
 //车库管理主程序
-int garage(pLcdInfo_t plcdinfo, struct point *pts_point);
+int garage(pLcdInfo_t plcdinfo, struct point *pts_point, int soc_fd);
 
 pCar_t enter_garage(pGarage_Manage_t pgarage_manage, int id);
 pCar_t exit_garage(pGarage_Manage_t pgarage_manage, int id);
@@ -52,6 +52,12 @@ struct charge_routine_arg{
 void *charge_routine(void *arg);
 
 
+struct checkinfo_routine_arg{
+
+	pGarage_Manage_t 	pgarage_manage;
+	int soc_fd;
+
+};
 //客户端查询停车信息子线程
 void *check_info_routine(void *arg);
 

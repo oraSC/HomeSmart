@@ -176,4 +176,60 @@ int client_create(int s_port, unsigned char *s_ip)
 	return soc_fd;
 
 }
+
+int soc_server_init(int *psoc_fd, unsigned char *s_ip, int s_port)
+{
 	
+	int ret;
+	
+	//创建socket(套接字)
+	*psoc_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(*psoc_fd < 0)
+	{
+		perror("fail to create socket");
+		return -1;
+	}
+
+	//绑定套接字与网络地址
+	//1.初始化服务器 IPv4 地址结构体
+	struct sockaddr_in server_addr;
+	int server_addr_len = sizeof(server_addr);
+	bzero(&server_addr, server_addr_len);
+
+	server_addr.sin_family 	= AF_INET;
+	server_addr.sin_port	= htons(s_port);
+	
+	if(s_ip != NULL)
+	{
+		server_addr.sin_addr.s_addr	= inet_addr(s_ip);
+	}
+	else
+	{
+		htonl(INADDR_ANY);	
+	}
+	//2.绑定
+	ret = bind(*psoc_fd, (struct sockaddr *)&server_addr, server_addr_len);
+	if(ret < 0)
+	{
+		perror("fail to bind socket");
+		return -1;
+	}
+	
+	//将待链接套接字设置为监听套接字
+	ret = listen(*psoc_fd, 5);
+	if(ret < 0)
+	{
+		perror("error exits in listen");
+		return -1;
+	}
+
+	printf("server is waiting for connection\n");
+
+
+
+
+}
+
+
+
+
