@@ -5,7 +5,7 @@
 
 
 
-int print_char(pLcdInfo_t plcdinfo, int x, int y, char ch);
+int print_string(pLcdInfo_t plcdinfo, int x, int y, unsigned char *str, int size);
 
 
 
