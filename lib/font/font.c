@@ -1,82 +1,105 @@
 #include "font.h"
-#include "../jpg/JPG.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-int font_print_char(pLcdInfo_t plcdinfo, int x, int y, unsigned char ch, int width, int height)
+static unsigned char Chinese[] = "车位";
+static unsigned char English[] = "11234567890";
+
+unsigned char  che[] = {
+0x02,0x00,0x02,0x00,0x02,0x00,0x7F,0xFC,0x04,0x00,0x09,0x00,0x11,0x00,0x21,0x00,
+0x3F,0xF8,0x01,0x00,0x01,0x00,0xFF,0xFE,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00};
+
+unsigned char che32[] ={
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x06,0x00,0x00,
+0x00,0x0E,0x00,0x00,0x00,0x0C,0x00,0x00,0x00,0x1C,0x00,0x60,0x0F,0xFF,0xFF,0xF0,
+0x00,0x18,0x00,0x00,0x00,0x30,0x00,0x00,0x00,0x31,0xC0,0x00,0x00,0x61,0x80,0x00,
+0x00,0xC1,0x80,0x00,0x00,0xC1,0x80,0x00,0x01,0x81,0x80,0x00,0x03,0x81,0x80,0xC0,
+0x07,0xFF,0xFF,0xE0,0x03,0x01,0x80,0x00,0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,
+0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x18,0x3F,0xFF,0xFF,0xFC,0x00,0x01,0x80,0x00,
+0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,
+0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,0x00,0x01,0x80,0x00,0x00,0x00,0x00,0x00};
+
+
+
+
+
+int Print();
+int main()
 {
 	
-	unsigned char reference_ch;
-	unsigned char jpgpath[30] = {0};
-
-	//数字
-	if((ch >= '0' && ch <= ':' )|| ch == '$')
+	unsigned char string[] = "你好呀11213恩";
+	for(int i = 0; i < strlen(string); )
 	{
-		reference_ch = '0';
-		strcpy(jpgpath, "./image/desktop/num.jpg");
-	}
-	else if(ch >= 'a' && ch <= 'z')
-	{
-		reference_ch = 'a';
-		strcpy(jpgpath, "./image/desktop/a_z.jpg");
+		if(string[i] > 127)
+		{
+			unsigned char chinese[4] = {0};
+			strncpy(chinese, string + i, 3);
+			printf("%s\n", chinese);
+			i = i + 3;
+		}
+		else 
+		{
+			unsigned char english;
+			english = string[i];
+			printf("%c\n", english);
+			i++;
+		
+		}
 	
 	}
-	else {
-		printf("ch can't be found in font lib\n");
-		return -1;
-	}
 	
+	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
+	lcd_create("/dev/fb0", plcdinfo);
 	
-	int ch_x = 50 * (ch - reference_ch);
-	if(ch == '$')
-	{
-		ch_x = 50*11;
-
-	}
-	int ch_y = 0;
-
-	//原图
-	JpgInfo_t char_jpginfo;
-
-	select_decompress_jpg2buffer(&char_jpginfo, jpgpath, ch_x, ch_y, 50, 50);
-	
-	//缩放图
-	
-	JpgInfo_t resize_char_jpginfo;
-	jpg_resize(&char_jpginfo, &resize_char_jpginfo, width, height);
-	
-	draw_pic(plcdinfo, x, y, &resize_char_jpginfo);
-	
-
-	free(char_jpginfo.buff);
-	free(resize_char_jpginfo.buff);
-
-	return 0;
-
-}
-
-int font_print_string(pLcdInfo_t plcdinfo, int x, int y, unsigned char *str, int width, int height)
-{
-	if(plcdinfo == NULL)
-	{
-		printf("plcdinfo couldn't be NULL\n");
-		return -1;
-	}
-
-	for(int i = 0; i < strlen(str); i++)
-	{
-		font_print_char(plcdinfo, x+width*i, y, str[i], width, height);
-
-	}
-
-	return 0;
-
-
+	Print(plcdinfo, 100, 200, che, 16, 0x0000FF00);
+	Print(plcdinfo, 200, 200, che32, 32, 0x0000FF00);
 
 
 
 }
+
+
+
+int Print(pLcdInfo_t plcdinfo, int x, int y, unsigned char *font_array, int size, unsigned int color)
+{
+	
+	//保存起始地址	
+	unsigned int *base = plcdinfo->base + x + plcdinfo->width*y;
+
+	//计算一行用多少位数据表示,仅支持 1位数据 代表 8个像素点格式
+	int rowsize = size / 8;
+
+	//每一次读取一行
+	for(int rows = 0; rows < size*rowsize; rows = rows + rowsize)
+	{
+
+		int judge = 0x80;
+		
+		for(int cols = 0; cols < rowsize; cols++)
+		{
+			for(int i = 0; i < 8; i++)
+			{
+				if((font_array[rows + cols] & (judge >> i)))
+				{
+					//printf("1");
+					*(base + i) = color; 
+				}
+				//else printf("0");
+			}
+
+			//前进八个像素点
+			base = base + 8;
+		}
+		//printf("\n");
+
+		//换行	
+		base = base + plcdinfo->width - 8 * rowsize;
+	}
+
+}
+
+
 
 
 

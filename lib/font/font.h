@@ -3,9 +3,11 @@
 
 #include "../lcd/LCD.h"
 
-//初始化字库
-int font_print_char(pLcdInfo_t pcldinfo, int x, int y, unsigned char ch, int width, int height);
-int font_print_string(pLcdInfo_t plcdinfo, int x, int y, unsigned char *str, int width, int height);
+
+
+int print_char(pLcdInfo_t plcdinfo, int x, int y, char ch);
+
+
 
 
 #endif
