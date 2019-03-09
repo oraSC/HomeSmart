@@ -323,7 +323,7 @@ void *check_info_routine(void *arg)
 	int soc_fd;
 	soc_server_init(&soc_fd, NULL, 4000);
 
-
+	
 	//等待对端连接请求
 	//1.声明变量存储对端信息
 	struct sockaddr_in client_addr;
@@ -381,13 +381,13 @@ void *check_info_routine(void *arg)
 			printf("/******************garage server**********************/\n");
 			printf("connecting with client.\nip: %s, port: %hd\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 			//发送当前状态值
-			ret = send(acc_fd, state, strlen(state), 0);
+			/*ret = send(acc_fd, state, strlen(state), 0);
 			if(ret < 0)
 			{
 				perror("error exits in send state when accept");
 			
 			}
-
+			*/
 			//更新待添加集合列表
 			soc_fds[soc_fds_len] = acc_fd;
 			max_fd = FIND_MAX_FD(acc_fd, max_fd);
@@ -427,24 +427,32 @@ void *check_info_routine(void *arg)
 						
 						//printf("num:%d\n", pgarage_manage->num);
 						//遍历查询车库管理器中是否有该id
-						for(int m = 0; m < pgarage_manage->num; m++)
+						int m;
+						for( m = 0; m < pgarage_manage->num; m++)
 						{
 							unsigned char tmp[10] = {0};
 							sprintf(tmp, "%08x", pgarage_manage->car[m].id);
 							printf("now:%s\n", tmp);
 							printf("buff:%s", buff);
 							printf("cmp:%d\n", strncmp(tmp, buff, strlen(buff)-1));
-							/*
-							 *bug:当一个已连接的客户端退出，再重新上线，服务器会收到一个‘\n’，以下是暂时解决方法：判断buff长度
-							 */
-								
-							if(strncmp(tmp, buff, strlen(buff)-1) == 0 && strlen(buff) != 1)
+
+							if(strncmp(tmp, buff, strlen(buff)-1) == 0)
 							{
-								printf("charge:%d\n", pgarage_manage->car[m].charge);
+								//printf("charge:%d\n", pgarage_manage->car[m].charge);
+								char charge[3] = {0};
+								sprintf(charge, "%d", pgarage_manage->car[m].charge);
+								
+								send(soc_fds[j], charge, strlen(charge), 0);
 								break;
 							}
 						
 						
+						}
+						//查询无果
+						if(m == pgarage_manage->num)
+						{
+							send(soc_fds[j], "no info", strlen("no info"), 0);
+							
 						}
 						
 					}
