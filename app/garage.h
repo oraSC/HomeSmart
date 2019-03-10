@@ -38,7 +38,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point);
 
 pCar_t enter_garage(pGarage_Manage_t pgarage_manage, int id);
 pCar_t exit_garage(pGarage_Manage_t pgarage_manage, int id);
-int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos);
+int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos, pGarage_Manage_t pgarage_manage);
 int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage, pJpgInfo_t pjpginfo);
 
 struct charge_routine_arg{

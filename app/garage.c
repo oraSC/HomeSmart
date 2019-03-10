@@ -16,10 +16,20 @@
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y)
 
+
+#define FONT_SIZE	32
+//POS
+#define NUM_POS_x	765 	
+#define NUM_POS_y	75
+
+
 //声明待添加集合列表
 /*
  *不声明static会被其他源文件使用？？？？
  */
+
+
+
 static int soc_fds[10];
 static int soc_fds_len;
 static int max_fd;
@@ -29,6 +39,9 @@ extern char state[20];
 int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 {
 
+	//初始化车库
+	font_lib_init();	
+	
 	int ret;
 
 	//初始化车库管理结构体
@@ -66,7 +79,9 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	AddFromTail_btn_sqlist(head, exit_node);
 
 	//加载车位总数
-	font_print_char(plcdinfo, 750, 60, CAPACITY - garage_manage.num + '0', 50, 50);
+	char _num[10] = {0};
+	sprintf(_num, "%d", garage_manage.num);
+	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE);
 
 
 	//*打开串口1->（进入车库RFID）
@@ -160,7 +175,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 				else if(pnew_car)
 				{
 					printf("wlecome\nid:ox%08x\npark_pos:%d\n", pnew_car->id, pnew_car->park_pos);
-					park_update(plcdinfo, car_pjpginfo, pnew_car->park_pos);	
+					park_update(plcdinfo, car_pjpginfo, pnew_car->park_pos, &garage_manage);	
 					info_update(plcdinfo, &garage_manage, infobg_pjpginfo);
 					//sleep(1);
 					
@@ -204,10 +219,10 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 				else if(pexit_car)
 				{
 					printf("byebye:\nid:ox%08x\npark_pos:%d\n", pexit_car->id, pexit_car->park_pos);
-					park_update(plcdinfo, blank_pjpginfo, pexit_car->park_pos);	
+					park_update(plcdinfo, blank_pjpginfo, pexit_car->park_pos, &garage_manage);	
 					info_update(plcdinfo, &garage_manage, infobg_pjpginfo);	
 					//sleep(1);
-
+						
 				
 				}
 			}
@@ -551,8 +566,20 @@ pCar_t exit_garage(pGarage_Manage_t pgarage_manage, int id)
 
 
 
-int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos)
+int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos, pGarage_Manage_t pgarage_manage)
 {
+
+	//更新车位数量信息
+	char _num[] = {0};
+	JpgInfo_t num_bg_info;
+	decompress_jpg2buffer(&num_bg_info, "./image/garage/num_bg.jpg");
+	draw_pic(plcdinfo, NUM_POS_x, NUM_POS_y, &num_bg_info);
+	sprintf(_num, "%d", pgarage_manage->num);
+	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE);
+
+
+
+	
 	if(plcdinfo == NULL || pjpginfo == NULL || pos == 0)
 	{
 		printf("plcdinfo or pjpginfo or pos can't be NULL\n");
@@ -592,10 +619,7 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 	int height = 30;
 	
 	
-	//更新车位数量信息
-	font_print_char(plcdinfo, 750, 60, CAPACITY - pgarage_manage->num + '0', 50, 50);
-
-	//刷背景
+		//刷背景
 	draw_pic(plcdinfo, 605, 125, pjpginfo);
 
 	//更新各个车辆停车信息
@@ -610,11 +634,11 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 		//时间
 		sprintf(info_time, "%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
 		//费用
-		sprintf(info_charge, "$:%d", pgarage_manage->car[i].charge);
+		sprintf(info_charge, "￥:%d", pgarage_manage->car[i].charge);
 
-		font_print_string(plcdinfo, 605, 125 + i*height*3, info_park, width, height);
-		font_print_string(plcdinfo, 605, 125 + height + i*height*3, info_time, width, height);
-		font_print_string(plcdinfo, 605, 125 + height*2 + i*height*3, info_charge, width, height);
+		print_string(plcdinfo, 605, 125 + i*height*3, info_park, 32);
+		print_string(plcdinfo, 605, 125 + height + i*height*3, info_time, 32);
+		print_string(plcdinfo, 605, 125 + height*2 + i*height*3, info_charge, 32);
 	
 	}
 

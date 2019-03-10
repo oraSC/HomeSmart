@@ -18,7 +18,7 @@
 #include "./lib/socket/mysocket.h"
 #include "./app/music.h"
 #include "./app/garage.h"
-#include "./lib/font/font.h"
+//#include "./lib/font/font.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
 #define APP_NUM 	4

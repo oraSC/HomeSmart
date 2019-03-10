@@ -1,6 +1,6 @@
-desktop:desktop.o JPG.o LCD.o BMP.o album.o music.o garage.o  mysocket.o serial.o font.o 
+desktop:desktop.o JPG.o LCD.o BMP.o album.o music.o garage.o font.o  mysocket.o serial.o 
 	arm-linux-gcc -o desktop desktop.o JPG.o LCD.o BMP.o album.o music.o  garage.o mysocket.o serial.o font.o -I./lib/jpg/libjpeg -L./lib/jpg/libjpeg -ljpeg -lpthread
-	rm desktop.o JPG.o LCD.o BMP.o album.o mysocket.o music.o garage.o serial.o font.o
+	rm desktop.o JPG.o LCD.o BMP.o album.o mysocket.o music.o garage.o font.o serial.o
 desktop.o:desktop.c
 	arm-linux-gcc -c desktop.c
 JPG.o:./lib/jpg/JPG.c
