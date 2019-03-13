@@ -38,6 +38,9 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 	{
 		server_addr.sin_addr.s_addr = inet_addr(s_ip);
 	}
+	//设置允许重用本地地址和端口
+	int reuseaddr_enable = 1;
+	setsockopt(soc_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_enable, sizeof(reuseaddr_enable));
 
 	//2.绑定
 	ret = bind(soc_fd, (struct sockaddr *)&server_addr, server_addr_len);
@@ -63,13 +66,15 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 	int client_addr_len = sizeof(client_addr);
 	bzero(&client_addr, client_addr_len);
 
+
+
 	int acc_fd = accept(soc_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 	if(acc_fd < 0)
 	{
 		perror("error exits when accept client connect");
 		goto error;
 	}
-	/*
+
 
 	int ret1, ret2;
 
@@ -113,7 +118,7 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 	printf("send buff size:%d, len:%d\n", send_buff_size, send_buff_len);
 
 
-	*/
+	
 
 
 	//客户端端口、地址
@@ -235,6 +240,61 @@ int soc_server_init(int *psoc_fd, unsigned char *s_ip, int s_port)
 
 }
 
+ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
+{
+	int ret;
 
+	//接收
+	ret = recv(sockfd, buff, len, flags);
+	if(ret < 0)
+	{
+		perror("error exists in Recv->recv");
+		return -1;
 
+	}
+
+	//回复接收成功
+	int RET = 1;
+	ret = send(sockfd, &RET, sizeof(RET), 0);
+	if(ret < 0)
+	{
+		perror("error exists in Recv->send");
+		return -1;
+
+	}
+
+	return len;
+
+}
+
+int Send_andwait(int sockfd, const void *buff, size_t len, int flags)
+{
+	int ret;
+
+	//发送数据
+	ret = send(sockfd, buff, len, flags);
+	if(ret < 0)
+	{
+		perror("error exists in Send->send");
+		return -1;
+
+	}
+
+	//等待回复
+	int RET = -1;
+	ret = recv(sockfd, &RET, sizeof(RET), 0);
+	if(ret < 0)
+	{
+		perror("error exists in Send->recv");
+		return -1;
+	}
+	if(RET != 1)
+	{
+		printf("failed\n");
+		return -1;
+	}
+	//printf("succeed\n");
+	return 0;
+
+}
 

@@ -480,7 +480,7 @@ int print_string(pLcdInfo_t plcdinfo, int x, int y, unsigned char *str, int size
 		{
 			unsigned char chinese[4] = {0};
 			strncpy(chinese, str + i, 3);
-			printf("%s\n", chinese);
+			//printf("%s\n", chinese);
 			i = i + 3;
 			
 			//寻找字库数据
@@ -494,7 +494,7 @@ int print_string(pLcdInfo_t plcdinfo, int x, int y, unsigned char *str, int size
 		{
 			unsigned char english[2] = {0};
 			english[0] = str[i];
-			printf("%s\n", english);
+			//printf("%s\n", english);
 			i++;
 		
 			//寻找字库数据

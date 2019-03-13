@@ -15,10 +15,19 @@ typedef struct{
 }JpgInfo_t, *pJpgInfo_t;
 
 
+typedef struct jpg_data
+{
+	unsigned char data[614400];   //用于存放摄像头数据640*480
+	int size;  //用于存放摄像头数据大小
+}JpgData_t, *pJpgData_t ;
+
+
 
 pJpgInfo_t      decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path);
 bool 		decompress_jpg2bmp(char *src_path, char *dst_path);
-int		jpg_resize(pJpgInfo_t pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height);
+int 		decompress_jpgdata2buffer(unsigned char *pjpgdata, int datasize, pJpgInfo_t pdst_jpginfo);
+int			create_jpgbyjpgdata(unsigned char *path, pJpgData_t pjpgdata);
+int			jpg_resize(pJpgInfo_t pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int height);
 
 /*
 bug:当ROWs > COLS 出错

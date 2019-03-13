@@ -18,6 +18,7 @@
 #include "./lib/socket/mysocket.h"
 #include "./app/music.h"
 #include "./app/garage.h"
+#include "./app/camera.h"
 //#include "./lib/font/font.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
@@ -174,6 +175,7 @@ int main()
 			
 			if(app_num == 4)
 			{
+				camera(plcdinfo, &ts_point, &command);
 				break;
 			
 			}

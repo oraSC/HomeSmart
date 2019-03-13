@@ -632,7 +632,7 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 		//车位
 		sprintf(info_park, "car:%d", pgarage_manage->car[i].park_pos);
 		//时间
-		sprintf(info_time, "%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
+		sprintf(info_time, "t:%d:%d:%d", pgarage_manage->car[i].time_hour, pgarage_manage->car[i].time_min, pgarage_manage->car[i].time_sec);
 		//费用
 		sprintf(info_charge, "￥:%d", pgarage_manage->car[i].charge);
 
@@ -645,20 +645,5 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
