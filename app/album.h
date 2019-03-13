@@ -7,7 +7,7 @@
 
 
 
-struct point{
+typedef struct point{
 
 	int X;
 	int Y;
@@ -15,7 +15,7 @@ struct point{
 	int lastY;
 	bool update;
 
-};
+}Point_t, *pPoint_t;
 struct Command{
 
 	bool update;

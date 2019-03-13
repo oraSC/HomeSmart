@@ -22,7 +22,7 @@
 //#include "./lib/font/font.h"
 
 #define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
-#define APP_NUM 	4
+#define APP_NUM 	5
 
 
 
@@ -71,7 +71,11 @@ int main()
 
 	int ret;
 
-	char app_icon_name[APP_NUM][30] = {"./image/desktop/album.jpg", "./image/desktop/music.jpg", "./image/desktop/garage.jpg", "./image/desktop/exit.jpg"};
+	char app_icon_name[APP_NUM][30] = {	"./image/desktop/album.jpg", 
+										"./image/desktop/music.jpg", 
+										"./image/desktop/garage.jpg",
+										"./image/desktop/camera.jpg", 
+										"./image/desktop/exit.jpg"};
 
 	//1.创建lcd
 	pLcdInfo_t plcdinfo = (LcdInfo_t *)malloc(sizeof(LcdInfo_t));
@@ -105,7 +109,7 @@ int main()
 		
 		decompress_jpg2buffer(&app_jpginfo[i], app_icon_name[i]);
 		
-		pBtn_SqList_t newnode = draw_btn(plcdinfo, 150*(i) + 100, 100, &app_jpginfo[i]);
+		pBtn_SqList_t newnode = draw_btn(plcdinfo, 150*(i) + 30, 100, &app_jpginfo[i]);
 		AddFromTail_btn_sqlist(head, newnode);
 		
 	}
@@ -172,11 +176,15 @@ int main()
 		/***************************解锁*************************************/
 		if(app_num != 0)
 		{
-			
-			if(app_num == 4)
+			if(app_num == 5)
+			{
+				break;
+
+			}
+			else if(app_num == 4)
 			{
 				camera(plcdinfo, &ts_point, &command);
-				break;
+				
 			
 			}
 

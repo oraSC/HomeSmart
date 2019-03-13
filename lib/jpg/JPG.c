@@ -283,7 +283,7 @@ int jpg_resize(pJpgInfo_t src_pjpginfo, pJpgInfo_t dst_pjpginfo, int width, int 
 	float ratio_height = (float)(100 * height) / (float)src_pjpginfo->height;
 
 	//申请空间
-	dst_pjpginfo->buff = malloc(width * height * 3);
+	dst_pjpginfo->buff = (unsigned char *)malloc(width * height * 3);
 	if(dst_pjpginfo->buff == NULL)
 	{
 		perror("fail to malloc in jpg resize");
