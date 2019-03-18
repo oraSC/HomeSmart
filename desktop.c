@@ -19,10 +19,14 @@
 #include "./app/music.h"
 #include "./app/garage.h"
 #include "./app/camera.h"
+#include "./lib/cJSON/cJSON.h"
 //#include "./lib/font/font.h"
 
-#define FIND_MAX_FD(x,y) (x)>(y)?(x):(y) 
-#define APP_NUM 	5
+#define APP_START_x			30
+#define APP_WIDTH			150
+#define APP_START_y			100			
+#define FIND_MAX_FD(x,y) 	(x)>(y)?(x):(y) 
+#define APP_NUM 			5
 
 
 
@@ -44,6 +48,7 @@ struct Command 	command;
 void update_clients(char *message);
 void *ts_monitor(void *arg);
 void *remote_control(void *arg);
+void *statBarRoutine(void *arg);
 
 //声明待添加集合列表
 int soc_fds[10];
@@ -109,7 +114,7 @@ int main()
 		
 		decompress_jpg2buffer(&app_jpginfo[i], app_icon_name[i]);
 		
-		pBtn_SqList_t newnode = draw_btn(plcdinfo, 150*(i) + 30, 100, &app_jpginfo[i]);
+		pBtn_SqList_t newnode = draw_btn(plcdinfo, APP_WIDTH*(i) + APP_START_x, APP_START_y, &app_jpginfo[i]);
 		AddFromTail_btn_sqlist(head, newnode);
 		
 	}
@@ -129,6 +134,7 @@ int main()
 		goto err;
 	}
 
+	//触摸屏监控子线程
 	pthread_t ts_pth_id;
 	ret = pthread_create(&ts_pth_id, NULL, ts_monitor, NULL);
 	if(ret < 0)
@@ -137,6 +143,7 @@ int main()
 		goto err;
 	}
 	
+	//远程控制服务器子线程
 	pthread_t soc_pth_id;
 	ret = pthread_create(&soc_pth_id, NULL, remote_control, NULL);
 	if(ret < 0)
@@ -144,6 +151,16 @@ int main()
 		perror("fail to create remote control pthread");
 		goto err;
 	}
+
+	//状态栏更新子线程
+	pthread_t statBarPthId;
+	ret = pthread_create(&statBarPthId, NULL, statBarRoutine, (void *)plcdinfo);
+	if(ret < 0)
+	{
+		perror("fail to create statBar pthread");
+		goto err;
+	}
+
 
 	//*6.读取按键
 	int app_num = 0;
@@ -214,7 +231,7 @@ int main()
 			draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 			for(int i = 0; i < APP_NUM; i++)
 			{
-				draw_pic(plcdinfo, i*150 + 100, 100, &app_jpginfo[i]);
+				draw_pic(plcdinfo, APP_WIDTH*(i) + APP_START_x, APP_START_y, &app_jpginfo[i]);
 			
 			}
 						
@@ -477,6 +494,127 @@ void *remote_control(void *arg)
 		}
 	}
 }
+
+void *statBarRoutine(void *arg)
+{
+
+	int ret;
+
+	pLcdInfo_t plcdinfo = (LcdInfo_t *)arg;
+
+	//读取状态栏背景和相关图标
+	pJpgInfo_t statBarBg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+	if(statBarBg_pjpginfo == NULL)
+	{
+		perror("fail to malloc statBarbg_pjpginfo");
+		pthread_exit(0);
+	}
+	decompress_jpg2buffer(statBarBg_pjpginfo, "./image/desktop/statBarBg.jpg");
+
+	//3.加载背景
+	draw_pic(plcdinfo, 0, 0, statBarBg_pjpginfo);
+
+
+	/******************************获取网络天气**********************/
+	int getWeatherInfo_soc_fd = client_create(80, "218.14.248.103");
+
+	//定义请求头
+	char getBuff[200] ="GET /data/sk/101010100.html HTTP/1.0\r\n";
+	strcat(getBuff, "Host: www.weather.com.cn\r\n\r\n");
+
+	/*
+	*notice:数组大小必须足够大
+	*/
+	char dataBuff[1000] = {0};
+
+	//GET
+	ret = send(getWeatherInfo_soc_fd, getBuff, 200, 0);
+	if(ret <0)
+	{
+		perror("fail to send get request");
+		pthread_exit(0);
+	}
+
+	//等待数据返回
+	ret = recv(getWeatherInfo_soc_fd, dataBuff, sizeof(dataBuff), 0);
+	if(ret <0)
+	{
+		perror("recv failed!");
+		pthread_exit(0);
+	}
+	//定位 json 字符串段
+	char *jsonString = strstr(dataBuff, "weatherinfo") - 2;
+	printf("%s\n", jsonString);
+
+	//分析json
+	cJSON *weatherJson = cJSON_Parse(jsonString);
+	if(weatherJson == NULL)
+	{
+		perror("fail to parse jsonString");
+		pthread_exit(0);
+	}
+	cJSON *weatherInfoJson = cJSON_GetObjectItem(weatherJson, "weatherinfo");
+
+	//温度
+	cJSON *tempratureJson = cJSON_GetObjectItem(weatherInfoJson, "temp");
+	printf("temprature:%s\n", tempratureJson->valuestring);
+
+	//湿度
+	cJSON *humidityJson = cJSON_GetObjectItem(weatherInfoJson, "SD");
+	printf("humidity:%s\n", humidityJson->valuestring);
+
+	/***********************获取网络时间**********************/
+	int getTimeInfo_soc_fd = client_create(80, "139.199.7.215");
+
+
+	//定义请求头
+	char getTimeBuff[200] ="GET /?app=life.time&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json HTTP/1.0\r\n";
+	strcat(getTimeBuff, "Host: api.k780.com\r\n\r\n");
+
+	/*
+	*notice:数组大小必须足够大
+	*/
+	char TimeResponseBuff[1000] = {0};
+
+	//GET
+	ret = send(getTimeInfo_soc_fd, getTimeBuff, 200, 0);
+	if(ret <0)
+	{
+		perror("fail to send get request");
+		pthread_exit(0);
+	}
+
+	//等待数据返回
+	ret = recv(getTimeInfo_soc_fd, TimeResponseBuff, sizeof(TimeResponseBuff), 0);
+	if(ret <0)
+	{
+		perror("recv failed!");
+		pthread_exit(0);
+	}
+	//定位 json 字符串段
+	//char *TimejsonString = strstr(TimeResponseBuff, "weatherinfo") - 2;
+	printf("%s\n", TimeResponseBuff);
+/*
+	//分析json
+	cJSON *weatherJson = cJSON_Parse(jsonString);
+	if(weatherJson == NULL)
+	{
+		perror("fail to parse jsonString");
+		pthread_exit(0);
+	}
+	cJSON *weatherInfoJson = cJSON_GetObjectItem(weatherJson, "weatherinfo");
+
+	//温度
+	cJSON *tempratureJson = cJSON_GetObjectItem(weatherInfoJson, "temp");
+	printf("temprature:%s\n", tempratureJson->valuestring);
+
+	//湿度
+	cJSON *humidityJson = cJSON_GetObjectItem(weatherInfoJson, "SD");
+	printf("humidity:%s\n", humidityJson->valuestring);
+*/
+
+}
+
 
 
 void update_clients(char *message)

@@ -177,6 +177,7 @@ int client_create(int s_port, unsigned char *s_ip)
 		shutdown(soc_fd, SHUT_RDWR);
 		return -1;
 	}
+	printf("create a new client and connect %s successfully\n", s_ip);
 
 	return soc_fd;
 
