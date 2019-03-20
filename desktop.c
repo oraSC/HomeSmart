@@ -10,6 +10,7 @@
 #include <strings.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #include "./lib/lcd/LCD.h"
 #include "./lib/jpg/JPG.h"
@@ -20,7 +21,8 @@
 #include "./app/garage.h"
 #include "./app/camera.h"
 #include "./lib/cJSON/cJSON.h"
-//#include "./lib/font/font.h"
+#include "./lib/font/font.h"
+
 
 #define APP_START_x			30
 #define APP_WIDTH			150
@@ -58,14 +60,18 @@ int max_fd;
 //线程互斥锁、条件变量
 pthread_mutex_t mutex;
 pthread_cond_t	cond;
-
+//状态互斥锁、条件变量
+pthread_mutex_t statBar_mutex;
+pthread_cond_t	statBar_cond;
 
 //声明状态值(记录当前处于的功能)
 char state[20];
 
 int main()
 {
-	
+	//初始化字库
+	font_lib_init();
+
 	//初始化多路复用待添加集合列表
 	bzero(soc_fds, sizeof(soc_fds));
 	soc_fds_len = 0;
@@ -128,6 +134,20 @@ int main()
 	}
 	
 	ret = pthread_cond_init(&cond, NULL);
+	if(ret < 0)
+	{
+		perror("fail to init cond");
+		goto err;
+	}
+
+	ret = pthread_mutex_init(&statBar_mutex, NULL);
+	if(ret < 0)
+	{
+		perror("fail to init mutex");
+		goto err;
+	}
+	
+	ret = pthread_cond_init(&statBar_cond, NULL);
 	if(ret < 0)
 	{
 		perror("fail to init cond");
@@ -198,11 +218,12 @@ int main()
 				break;
 
 			}
+
 			else if(app_num == 4)
 			{
+				strcpy(state, "camera");
 				camera(plcdinfo, &ts_point, &command);
-				
-			
+				strcpy(state, "desktop");
 			}
 
 			//车库	
@@ -226,7 +247,9 @@ int main()
 				update_clients("desktop");
 			}
 			
-			
+			//解锁状态栏
+			pthread_cond_signal(&statBar_cond);
+
 			//再次刷新桌面
 			draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
 			for(int i = 0; i < APP_NUM; i++)
@@ -495,6 +518,32 @@ void *remote_control(void *arg)
 	}
 }
 
+#define COLOR				0x0000FFFF
+#define TEMPRATURE_x		30
+#define TEMPRATURE_y		5
+#define HUMIDITY_x			130
+#define HUMIDITY_y			5
+#define DATE_x				316
+#define DATE_y				5
+#define WEEK_x				490
+#define WEEK_y				5
+#define STATBAR_FONTSIZE	16
+
+/*
+*功能：获取网络天气同时更新 statBar 信息
+*返回值：
+*	成功：0
+*	失败：-1
+*/
+int getWeatherInfo(char *tempratureStirng, char *humidityString);
+/*
+*功能：获取网络时间同时更新系统时间
+*返回值：
+*	成功：0
+*	失败：-1
+*/
+int getInternetTimeInfo(char *weekString);
+
 void *statBarRoutine(void *arg)
 {
 
@@ -507,6 +556,7 @@ void *statBarRoutine(void *arg)
 	if(statBarBg_pjpginfo == NULL)
 	{
 		perror("fail to malloc statBarbg_pjpginfo");
+		free(statBarBg_pjpginfo);
 		pthread_exit(0);
 	}
 	decompress_jpg2buffer(statBarBg_pjpginfo, "./image/desktop/statBarBg.jpg");
@@ -514,7 +564,61 @@ void *statBarRoutine(void *arg)
 	//3.加载背景
 	draw_pic(plcdinfo, 0, 0, statBarBg_pjpginfo);
 
+	//获取网络天气
+	char tempratureString[5] = {0}, humidityString[5] = {0}; 
+	getWeatherInfo(tempratureString, humidityString);
 
+	//获取并设置系统时间
+	char weekString[10] = {0}; 
+	getInternetTimeInfo(weekString);
+
+	time_t clk_time;
+	//为什么可以传指针
+	struct tm *timeInfo;
+	//秒级更新
+	char dateString[20] = {0};
+	while(1)
+	{
+		//仅在桌面启动状态栏
+		while(strcmp(state, "desktop") != 0)
+		{
+			pthread_cond_wait(&statBar_cond, &statBar_mutex);
+
+		}
+		bzero(dateString, sizeof(dateString));
+		//获取时间
+		clk_time = time(NULL);
+		//不可重入函数
+		timeInfo = localtime(&clk_time);
+		//读取当前时间
+		sprintf(dateString, "%d-%d-%d %d:%d:%d", 	(timeInfo->tm_year)+1900,
+												(timeInfo->tm_mon)+1,
+												timeInfo->tm_mday,
+												timeInfo->tm_hour,
+												timeInfo->tm_min,
+												timeInfo->tm_sec);
+		//整点查询天气
+		if(timeInfo->tm_hour == 0 && timeInfo->tm_sec == 0)
+		{
+			getWeatherInfo(tempratureString, humidityString);
+		}
+		//3.加载背景
+		draw_pic(plcdinfo, 0, 0, statBarBg_pjpginfo);
+		print_string(plcdinfo, TEMPRATURE_x, TEMPRATURE_y, tempratureString, STATBAR_FONTSIZE, COLOR);
+		print_string(plcdinfo, HUMIDITY_x, HUMIDITY_y, humidityString, STATBAR_FONTSIZE, COLOR);
+		print_string(plcdinfo, DATE_x, DATE_y,dateString, STATBAR_FONTSIZE, COLOR);
+		print_string(plcdinfo, WEEK_x, WEEK_y,weekString, STATBAR_FONTSIZE, COLOR);
+
+		sleep(1);
+	}
+
+}
+
+
+
+int getWeatherInfo(char *tempratureString, char *humidityString)
+{
+	int ret;
 	/******************************获取网络天气**********************/
 	int getWeatherInfo_soc_fd = client_create(80, "218.14.248.103");
 
@@ -532,7 +636,7 @@ void *statBarRoutine(void *arg)
 	if(ret <0)
 	{
 		perror("fail to send get request");
-		pthread_exit(0);
+		return -1;
 	}
 
 	//等待数据返回
@@ -540,32 +644,39 @@ void *statBarRoutine(void *arg)
 	if(ret <0)
 	{
 		perror("recv failed!");
-		pthread_exit(0);
+		return -1;
 	}
 	//定位 json 字符串段
 	char *jsonString = strstr(dataBuff, "weatherinfo") - 2;
-	printf("%s\n", jsonString);
 
 	//分析json
 	cJSON *weatherJson = cJSON_Parse(jsonString);
 	if(weatherJson == NULL)
 	{
 		perror("fail to parse jsonString");
-		pthread_exit(0);
+		return -1;
 	}
 	cJSON *weatherInfoJson = cJSON_GetObjectItem(weatherJson, "weatherinfo");
 
 	//温度
 	cJSON *tempratureJson = cJSON_GetObjectItem(weatherInfoJson, "temp");
-	printf("temprature:%s\n", tempratureJson->valuestring);
+	strcpy(tempratureString, tempratureJson->valuestring);
 
 	//湿度
 	cJSON *humidityJson = cJSON_GetObjectItem(weatherInfoJson, "SD");
-	printf("humidity:%s\n", humidityJson->valuestring);
+	strcpy(humidityString, humidityJson->valuestring);
+
+	//销毁cJSON对象
+	cJSON_Delete(weatherJson);
+
+}
+
+int getInternetTimeInfo(char *weekString)
+{
+	int ret;
 
 	/***********************获取网络时间**********************/
 	int getTimeInfo_soc_fd = client_create(80, "139.199.7.215");
-
 
 	//定义请求头
 	char getTimeBuff[200] ="GET /?app=life.time&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json HTTP/1.0\r\n";
@@ -581,7 +692,7 @@ void *statBarRoutine(void *arg)
 	if(ret <0)
 	{
 		perror("fail to send get request");
-		pthread_exit(0);
+		return -1;
 	}
 
 	//等待数据返回
@@ -589,33 +700,36 @@ void *statBarRoutine(void *arg)
 	if(ret <0)
 	{
 		perror("recv failed!");
-		pthread_exit(0);
+		return -1;
 	}
+
 	//定位 json 字符串段
-	//char *TimejsonString = strstr(TimeResponseBuff, "weatherinfo") - 2;
-	printf("%s\n", TimeResponseBuff);
-/*
+	char *TimejsonString = strstr(TimeResponseBuff, "success") - 2;
+
 	//分析json
-	cJSON *weatherJson = cJSON_Parse(jsonString);
-	if(weatherJson == NULL)
+	cJSON *timeJson = cJSON_Parse(TimejsonString);
+	if(timeJson == NULL)
 	{
-		perror("fail to parse jsonString");
-		pthread_exit(0);
+		perror("fail to parse TimeResponseBuff");
+		return -1;
 	}
-	cJSON *weatherInfoJson = cJSON_GetObjectItem(weatherJson, "weatherinfo");
+	cJSON *timeInfoJson = cJSON_GetObjectItem(timeJson, "result");
 
-	//温度
-	cJSON *tempratureJson = cJSON_GetObjectItem(weatherInfoJson, "temp");
-	printf("temprature:%s\n", tempratureJson->valuestring);
+	//时间：2019-03-19 15:22:10
+	cJSON *dateTimeJson = cJSON_GetObjectItem(timeInfoJson, "datetime_1");
+	//设置系统时间
+	char setDateCmd[30] = {0};
+	sprintf(setDateCmd, "date -s \"%s\"", dateTimeJson->valuestring);
+	system(setDateCmd);
 
-	//湿度
-	cJSON *humidityJson = cJSON_GetObjectItem(weatherInfoJson, "SD");
-	printf("humidity:%s\n", humidityJson->valuestring);
-*/
+	//星期：Tuesday
+	cJSON *weekTimeJson = cJSON_GetObjectItem(timeInfoJson, "week_4");
+	strcpy(weekString, weekTimeJson->valuestring);
+
+	//销毁cJSON对象
+	cJSON_Delete(timeJson);
 
 }
-
-
 
 void update_clients(char *message)
 {

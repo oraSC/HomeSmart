@@ -21,7 +21,7 @@
 //POS
 #define NUM_POS_x	765 	
 #define NUM_POS_y	75
-
+#define COLOR		0x00FF0000
 
 //声明待添加集合列表
 /*
@@ -39,8 +39,7 @@ extern char state[20];
 int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 {
 
-	//初始化车库
-	font_lib_init();	
+	
 	
 	int ret;
 
@@ -81,7 +80,7 @@ int garage(pLcdInfo_t plcdinfo, struct point *pts_point)
 	//加载车位总数
 	char _num[10] = {0};
 	sprintf(_num, "%d", garage_manage.num);
-	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE);
+	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE, COLOR);
 
 
 	//*打开串口1->（进入车库RFID）
@@ -575,7 +574,7 @@ int park_update(pLcdInfo_t plcdinfo, pJpgInfo_t pjpginfo, int pos, pGarage_Manag
 	decompress_jpg2buffer(&num_bg_info, "./image/garage/num_bg.jpg");
 	draw_pic(plcdinfo, NUM_POS_x, NUM_POS_y, &num_bg_info);
 	sprintf(_num, "%d", pgarage_manage->num);
-	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE);
+	print_string(plcdinfo, NUM_POS_x, NUM_POS_y, _num, FONT_SIZE, COLOR);
 
 
 
@@ -636,9 +635,9 @@ int info_update(pLcdInfo_t plcdinfo, pGarage_Manage_t pgarage_manage,pJpgInfo_t 
 		//费用
 		sprintf(info_charge, "￥:%d", pgarage_manage->car[i].charge);
 
-		print_string(plcdinfo, 605, 125 + i*height*3, info_park, 32);
-		print_string(plcdinfo, 605, 125 + height + i*height*3, info_time, 32);
-		print_string(plcdinfo, 605, 125 + height*2 + i*height*3, info_charge, 32);
+		print_string(plcdinfo, 605, 125 + i*height*3, info_park, 32, COLOR);
+		print_string(plcdinfo, 605, 125 + height + i*height*3, info_time, 32, COLOR);
+		print_string(plcdinfo, 605, 125 + height*2 + i*height*3, info_charge, 32, COLOR);
 	
 	}
 
