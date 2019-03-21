@@ -23,9 +23,10 @@
 #define VIDEOCALL_y             350   
 #define RINGOFF_INCALL_x        375
 #define RINGOFF_INCALL_y        350
-#define A_FRAME_WIDTH           64
-#define A_FRAME_HEIGHT          48
-#define A_FRAME_SIZE    A_FRAME_HEIGHT * A_FRAME_WIDTH
+#define A_FRAME_WIDTH           640
+#define A_FRAME_HEIGHT          480
+#define A_FRAME_SIZE            (A_FRAME_HEIGHT * A_FRAME_WIDTH * 3)
+#define RECV_SINGLE_SIZE        30720
 
 /*
 *功能：解压jpgddata并在lcd中显示
@@ -65,7 +66,7 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 
     decompress_jpg2buffer(bg_pjpginfo, "./image/chat/bg.jpg");
     draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-    
+
     //加载 voiceCall、videoCall
     pJpgInfo_t voiceCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
     if(bg_pjpginfo == NULL)
@@ -90,7 +91,6 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         perror("fail to malloc for ringOn_pjpginfo");
         return -1;
     }
-
     decompress_jpg2buffer(ringOn_pjpginfo, "./image/chat/ringOn.jpg");
 
     pJpgInfo_t ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
@@ -100,7 +100,7 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         return -1;
     }
     decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringOff.jpg");
-    
+
     //添加按键
     pBtn_SqList_t   phead = create_btn_sqlist();
     pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
@@ -246,7 +246,29 @@ void *wait_for_callme(void *arg)
 
     while(1)
     {
-        recv(socFd, recv_jpginfo.buff, A_FRAME_SIZE, 0);
+        bzero(recv_jpginfo.buff, sizeof(recv_jpginfo.buff));
+        //接受图像
+        /*
+        *bug:偶尔出现丢失某一端，造成图像数据整体上移
+        */
+        int rest_size = A_FRAME_SIZE;
+        int recv_num = A_FRAME_SIZE / RECV_SINGLE_SIZE + 1;
+        for(int i = 0; i < recv_num; i++)
+        {
+            if(rest_size > RECV_SINGLE_SIZE)
+            {
+                Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
+            }
+            else 
+            {
+                Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, rest_size, 0);
+
+            }
+            //修改剩余大小
+            rest_size = rest_size - RECV_SINGLE_SIZE;
+
+        }
+
         draw_pic(plcdinfo, 80, 0, &recv_jpginfo);
 
     }

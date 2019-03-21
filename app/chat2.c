@@ -22,6 +22,7 @@
 #define VIDEOCALL_y             350   
 #define RINGOFF_INCALL_x        375
 #define RINGOFF_INCALL_y        350
+
 /*
 *功能：解压jpgddata并在lcd中显示
 *返回值：
@@ -117,7 +118,7 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
             if(click == 2)
             {
                 
-                socFd = client_create(4001, "202.192.32.18");
+                socFd = client_create(4001, "202.192.32.52");
                 //已拨通、等待接电话
                 if(socFd > 0)
                 {
@@ -185,13 +186,14 @@ void *wait_for_callme(void *arg)
 }
 
 
-#define MY_WIN_WIDTH    128
-#define MY_WIN_HEIGHT   96
-#define MY_WIN_x        672
-#define MY_WIN_y        0
-#define A_FRAME_WIDTH   64
-#define A_FRAME_HEIGHT  48
-#define A_FRAME_SIZE    A_FRAME_HEIGHT * A_FRAME_WIDTH    
+#define MY_WIN_WIDTH        128
+#define MY_WIN_HEIGHT       96
+#define MY_WIN_x            672
+#define MY_WIN_y            0
+#define A_FRAME_WIDTH       640
+#define A_FRAME_HEIGHT      480
+#define A_FRAME_SIZE        (A_FRAME_HEIGHT * A_FRAME_WIDTH * 3)    
+#define SEND_SINGLE_SIZE    30720   
 
 int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 {
@@ -206,9 +208,27 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
     jpg_resize(&src_jpginfo, &resize_jpginfo, MY_WIN_WIDTH, MY_WIN_HEIGHT);
     jpg_resize(&src_jpginfo, &send_jpginfo, A_FRAME_WIDTH, A_FRAME_HEIGHT);
 
-    send(socfd, send_jpginfo.buff, A_FRAME_SIZE, 0);
+    //发送图像
+    int rest_size = A_FRAME_SIZE;
+	int send_num = A_FRAME_SIZE / SEND_SINGLE_SIZE + 1;
+  	for(int i = 0; i < send_num; i++)
+	{
+		if(rest_size > SEND_SINGLE_SIZE)
+		{
+			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
+		}
+		else 
+		{
+			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, rest_size, 0);
+
+		}
+		//修改剩余大小
+		rest_size = rest_size - SEND_SINGLE_SIZE;
+
+	}
+
     draw_pic(plcdinfo, MY_WIN_x, MY_WIN_y, &resize_jpginfo);
-    draw_pic(plcdinfo, 0, 0, &send_jpginfo);
+    
     
     //释放资源
     free(src_jpginfo.buff);
