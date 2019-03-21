@@ -1,3 +1,9 @@
+/*record:采用如下通话模型：
+*       主线程：call_routine(负责打电话)
+*       子线程：accept_routine(负责接电话)
+*通话流程：
+*       打电话方(主动方)，连接接电话方(被动方)服务器，接电话方子线程通知主线程连接打电话方服务器，形成x型通话模型
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +32,7 @@
 #define A_FRAME_WIDTH           640
 #define A_FRAME_HEIGHT          480
 #define A_FRAME_SIZE            (A_FRAME_HEIGHT * A_FRAME_WIDTH * 3)
-#define RECV_SINGLE_SIZE        30720
+#define RECV_SINGLE_SIZE        15360
 
 /*
 *功能：解压jpgddata并在lcd中显示
@@ -231,11 +237,7 @@ void *wait_for_callme(void *arg)
 
 
     }
-    //加载有电话来界面
-    clear_btn_sqlist(&phead);
-    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-    pBtn_SqList_t node = draw_btn(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo);
-    AddFromTail_btn_sqlist(phead, node);
+    
     //in call
     JpgInfo_t recv_jpginfo;
     recv_jpginfo.width = A_FRAME_WIDTH;
@@ -246,32 +248,46 @@ void *wait_for_callme(void *arg)
 
     while(1)
     {
+     
         bzero(recv_jpginfo.buff, sizeof(recv_jpginfo.buff));
         //接受图像
         /*
-        *bug:偶尔出现丢失某一端，造成图像数据整体上移
+        *bug:偶尔出现丢失某一端，造成图像数据整体上移(单次发送超过20480 Byte)
         */
+ 
         int rest_size = A_FRAME_SIZE;
         int recv_num = A_FRAME_SIZE / RECV_SINGLE_SIZE + 1;
         for(int i = 0; i < recv_num; i++)
         {
             if(rest_size > RECV_SINGLE_SIZE)
             {
-                Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
+                ret = Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
             }
-            else 
+            else if(rest_size != 0)
             {
-                Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, rest_size, 0);
+                ret = Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, rest_size, 0);
 
+            }
+            
+            //判断对端是否下线
+            if(ret == 0)
+            {
+                break;
             }
             //修改剩余大小
             rest_size = rest_size - RECV_SINGLE_SIZE;
-
         }
-
+        //判断对端是否下线
+        if(ret == 0)
+        {
+            break;
+        }
+        
         draw_pic(plcdinfo, 80, 0, &recv_jpginfo);
+        draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }
+    printf("end of call\n");
 
 
 }

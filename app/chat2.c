@@ -81,7 +81,7 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         return -1;
     }
 
-    decompress_jpg2buffer(ringOn_pjpginfo, "./image/chat/ringon.jpg");
+    decompress_jpg2buffer(ringOn_pjpginfo, "./image/chat/ringOn.jpg");
 
     pJpgInfo_t ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
     if(bg_pjpginfo == NULL)
@@ -90,7 +90,7 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         return -1;
     }
 
-    decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringoff.jpg");
+    decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringOff.jpg");
     
     //添加按键
     pBtn_SqList_t   phead = create_btn_sqlist();
@@ -148,6 +148,13 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     }
 
     //通话
+    //加载in call界面
+    pts_point->update = false;
+    clear_btn_sqlist(&phead);
+    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+    pBtn_SqList_t node = draw_btn(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo);
+    AddFromTail_btn_sqlist(phead, node);
+
     //初始化摄像头
     linux_v4l2_yuyv_init("/dev/video7");
 
@@ -159,6 +166,20 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     JpgInfo_t jpginfo;
     while(1)
     {
+        if(pts_point->update == true)
+        {
+            pts_point->update = false;
+
+            int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
+            if(click == 1)
+            {
+                //挂机
+                shutdown(socFd, SHUT_RDWR);
+                break;
+            }
+            printf("click:%d\n", click);
+        }
+ 
         //获取数据
         linux_v4l2_get_yuyv_data(&jpgdata);
 
@@ -167,9 +188,11 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         /*
         *backlog:隐藏图标
         */
-        
+        //显示挂断按键(由于线程调度的不确定性， 在主线程和子线程均加载 riongOff btn)
+        //draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }
+    printf("end of call\n");
     
 }
 
@@ -193,7 +216,7 @@ void *wait_for_callme(void *arg)
 #define A_FRAME_WIDTH       640
 #define A_FRAME_HEIGHT      480
 #define A_FRAME_SIZE        (A_FRAME_HEIGHT * A_FRAME_WIDTH * 3)    
-#define SEND_SINGLE_SIZE    30720   
+#define SEND_SINGLE_SIZE    15360  
 
 int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 {
@@ -217,7 +240,7 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 		{
 			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
 		}
-		else 
+		else if(rest_size != 0)
 		{
 			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, rest_size, 0);
 
