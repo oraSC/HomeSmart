@@ -85,40 +85,37 @@ int server_create(int s_port, unsigned char *s_ip, int *c_port, unsigned char **
 		return -1;
 	}
 
-	//设置缓存区大小
-	int recv_buff_size = 1024 ;
-	int recv_buff_len = 4;
-	ret1 = setsockopt(soc_fd1, SOL_SOCKET, SO_RCVBUF, (char *)&recv_buff_size, recv_buff_len);
-	if(ret1 < 0)
-	{
-		perror("error");
-		return -1;
-	}
+	// //设置缓存区大小
+	// int recv_buff_size = 1024 ;
+	// int recv_buff_len = 4;
+	// ret1 = setsockopt(soc_fd1, SOL_SOCKET, SO_RCVBUF, (char *)&recv_buff_size, recv_buff_len);
+	// if(ret1 < 0)
+	// {
+	// 	perror("error");
+	// 	return -1;
+	// }
 	
-	recv_buff_size = 0;
-	recv_buff_len = 0;
-	//recv缓存区大小
-	ret1 = getsockopt(soc_fd1, SOL_SOCKET, SO_RCVBUF, (char *)&recv_buff_size, &recv_buff_len);
-	if(ret1 < 0)
-	{
-		perror("error");
-		return -1;
-	}
-	printf("recv buff size:%d, len:%d\n",recv_buff_size, recv_buff_len);
+	// recv_buff_size = 0;
+	// recv_buff_len = 0;
+	// //recv缓存区大小
+	// ret1 = getsockopt(soc_fd1, SOL_SOCKET, SO_RCVBUF, (char *)&recv_buff_size, &recv_buff_len);
+	// if(ret1 < 0)
+	// {
+	// 	perror("error");
+	// 	return -1;
+	// }
+	// printf("recv buff size:%d, len:%d\n",recv_buff_size, recv_buff_len);
 	
-	//send缓存区大小
-	int send_buff_size = 0;
-	int send_buff_len = 0;
-	ret2 = getsockopt(soc_fd1, SOL_SOCKET, SO_SNDBUF, &send_buff_size, &send_buff_len);
-	if(ret2 < 0)
-	{
-		perror("error:");
-		return -1;
-	}
-	printf("send buff size:%d, len:%d\n", send_buff_size, send_buff_len);
-
-
-	
+	// //send缓存区大小
+	// int send_buff_size = 0;
+	// int send_buff_len = 0;
+	// ret2 = getsockopt(soc_fd1, SOL_SOCKET, SO_SNDBUF, &send_buff_size, &send_buff_len);
+	// if(ret2 < 0)
+	// {
+	// 	perror("error:");
+	// 	return -1;
+	// }
+	// printf("send buff size:%d, len:%d\n", send_buff_size, send_buff_len);
 
 
 	//客户端端口、地址
@@ -244,7 +241,7 @@ int soc_server_init(int *psoc_fd, unsigned char *s_ip, int s_port)
 ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
 {
 	int ret;
-
+	int ret2;
 	//接收
 	ret = recv(sockfd, buff, len, flags);
 	if(ret < 0)
@@ -256,7 +253,7 @@ ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
 
 	//回复接收成功
 	int RET = 1;
-	ret = send(sockfd, &RET, sizeof(RET), 0);
+	ret2 = send(sockfd, &RET, sizeof(RET), 0);
 	if(ret < 0)
 	{
 		perror("error exists in Recv->send");
@@ -264,6 +261,11 @@ ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
 
 	}
 
+	if(ret == 0)
+	{
+		printf("client offline\n");
+		return 0;
+	}
 	return len;
 
 }
