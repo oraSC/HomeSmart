@@ -20,7 +20,7 @@
 #include "./app/music.h"
 #include "./app/garage.h"
 #include "./app/camera.h"
-#include "./app/chat.h"
+#include "./app/chat2.h"
 #include "./lib/cJSON/cJSON.h"
 #include "./lib/font/font.h"
 
@@ -234,7 +234,7 @@ int main()
 			else if(app_num == CHAT)
 			{
 				strcpy(state, "chat");
-				chat(plcdinfo, &ts_point);
+				chat2(plcdinfo, &ts_point);
 				strcpy(state, "desktop");
 			}
 			else if(app_num == CAMERA)
@@ -368,6 +368,7 @@ void *ts_monitor(void *arg)
 		//X
 		if(tsinfo.type == EV_ABS && tsinfo.code == ABS_X)
 		{
+			printf("2\n");
 			printf("x = %d\t", tsinfo.value);
 			ts_point.X = tsinfo.value;
 		}
@@ -408,7 +409,7 @@ void *remote_control(void *arg)
 
 	//创建套接字
 	int soc_fd;
-	soc_server_init(&soc_fd, NULL, 3000);
+	soc_server_init(&soc_fd, NULL, 3002);
 
 
 	//等待对端连接请求

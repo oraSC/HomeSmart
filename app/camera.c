@@ -18,14 +18,7 @@
 #define EXIT_x          750
 #define EXIT_y          430
 
-/*
-*功能：解压jpgddata并在lcd中显示
-*返回值：
-*   成功：0
-*   失败：-1
-*/
-int decompress_jpgdataAndshow(  pLcdInfo_t plcdinfo, int x, int y, 
-                                pJpgData_t pjpgdata);
+
 /*
 *功能：查看刚拍的照片
 *返回值：
@@ -34,12 +27,21 @@ int decompress_jpgdataAndshow(  pLcdInfo_t plcdinfo, int x, int y,
 */
 static int check_photo( pLcdInfo_t plcdinfo, pPoint_t pts_point, 
                         unsigned char *path, pJpgInfo_t bg_pjpginfo);
+                        /*
+*功能：解压jpgddata并在lcd中显示
+*返回值：
+*   成功：0
+*   失败：-1
+*/
+static int decompress_jpgdataAndshow(  pLcdInfo_t plcdinfo, int x, int y, 
+                                pJpgData_t pjpgdata);
 /*
 *功能：恢复拍照基础界面
 *返回值：
 *   成功：0
 *   失败：-1
 */
+
 int recovery_camera_interface( pLcdInfo_t plcdinfo, 
                                 pJpgInfo_t bg_pjpgingo, 
                                 pJpgInfo_t take_pjpginfo, 
