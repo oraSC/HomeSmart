@@ -12,6 +12,11 @@
 #include "../lib/libjpeg/jpeglib.h"
 #include "../lib/socket/mysocket.h"
 
+
+//CMD
+#define EXIT_CHAT_CMD           1
+#define RINGOFF_CMD             2
+
 #define RINGON_ANSWER_x         450
 #define RINGON_ANSWER_y         400
 #define RINGOFF_ANSWER_x        300
@@ -42,83 +47,76 @@ struct wait_for_callme_arg{
 };
 void *wait_for_callme(void *arg);
 
+
 //释放堆内存
-static void free_malloc(pJpgInfo_t bg_pjpginfo, 
-                        pJpgInfo_t voiceCall_pjpginfo,
-                        pJpgInfo_t videoCall_pjpginfo,
-                        pJpgInfo_t ringOn_pjpginfo,
-                        pJpgInfo_t ringOff_pjpginfo,
-                        pJpgInfo_t exit_pjpginfo);
+static void chat_destroyPic(pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t voiceCall_pjpginfo,
+                            pJpgInfo_t videoCall_pjpginfo,
+                            pJpgInfo_t ringOn_pjpginfo,
+                            pJpgInfo_t ringOff_pjpginfo,
+                            pJpgInfo_t exit_pjpginfo);
+
+/*
+*功能：chat初始化 加载图片
+*返回值：
+*   成功：0
+*   失败：-1
+*/
+static int chat2_init_loadpic(   pJpgInfo_t *bg_pjpginfo, 
+                                pJpgInfo_t *voiceCall_pjpginfo,
+                                pJpgInfo_t *videoCall_pjpginfo,
+                                pJpgInfo_t *ringOn_pjpginfo,
+                                pJpgInfo_t *ringOff_pjpginfo,
+                                pJpgInfo_t *exit_pjpginfo);
+/*
+*功能：准备拨话，可选择voiceCall / videoCall
+*返回值：CMD值
+*/
+static int ready_to_call(   pLcdInfo_t plcdinfo,
+                            pPoint_t pts_point,
+                            int *psocfd,
+                            pBtn_SqList_t phead,
+                            pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t voiceCall_pjpginfo,
+                            pJpgInfo_t videoCall_pjpginfo,
+                            pJpgInfo_t exit_pjpginfo
+                            );
+/*
+*功能：通话中
+*返回值：
+*   成功：0
+*   失败：-1
+*/
+static int in_call( pLcdInfo_t plcdinfo,
+                    pPoint_t pts_point,
+                    int socFd,
+                    pBtn_SqList_t phead,
+                    pJpgInfo_t bg_pjpginfo, 
+                    pJpgInfo_t ringOff_pjpginfo,
+                    pJpgInfo_t exit_pjpginfo
+                    );
 
 int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 {
     
     int ret;
 
-    //加载背景
-    pJpgInfo_t bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for bg_pjpginfo");
-        return -1;
-    }
-
-    decompress_jpg2buffer(bg_pjpginfo, "./image/chat/bg.jpg");
-    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-
-    //加载 voiceCall、videoCall
-    pJpgInfo_t voiceCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for voiceCall_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(voiceCall_pjpginfo, "./image/chat/voiceCall.jpg");
-
-     pJpgInfo_t videoCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for videoCall_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(videoCall_pjpginfo, "./image/chat/videoCall.jpg");
-
-    //加载 ring on/off 按键
-    pJpgInfo_t ringOn_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for ringOn_pjpginfo");
-        return -1;
-    }
-
-    decompress_jpg2buffer(ringOn_pjpginfo, "./image/chat/ringOn.jpg");
-
-    pJpgInfo_t ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for ringOff_pjpginfo");
-        return -1;
-    }
-
-    decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringOff.jpg");
-    
-    //加载 exit
-    pJpgInfo_t exit_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for exit_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(exit_pjpginfo, "./image/chat/exit.jpg");
+    pJpgInfo_t bg_pjpginfo; 
+    pJpgInfo_t voiceCall_pjpginfo; 
+    pJpgInfo_t videoCall_pjpginfo;
+    pJpgInfo_t ringOn_pjpginfo;
+    pJpgInfo_t ringOff_pjpginfo;
+    pJpgInfo_t exit_pjpginfo;
+    //初始化
+    chat2_init_loadpic(  &bg_pjpginfo, 
+                        &voiceCall_pjpginfo,
+                        &videoCall_pjpginfo,
+                        &ringOn_pjpginfo,
+                        &ringOff_pjpginfo,
+                        &exit_pjpginfo);
 
     //添加按键
     pBtn_SqList_t   phead = create_btn_sqlist();
-    pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
-    AddFromTail_btn_sqlist(phead, voiceCallBtn);
-    pBtn_SqList_t videoCallBtn = draw_btn(plcdinfo, VIDEOCALL_x, VIDEOCALL_y, videoCall_pjpginfo);
-    AddFromTail_btn_sqlist(phead, videoCallBtn);
-    pBtn_SqList_t exitBtn = draw_btn(plcdinfo, EXIT_x, EXIT_y, exit_pjpginfo);
-    AddFromTail_btn_sqlist(phead, exitBtn);
     
     //创建接电话子线程
     pthread_t waitForCallMePthId;
@@ -128,65 +126,90 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     ptharg.pts_point = pts_point;
     pthread_create(&waitForCallMePthId, NULL, wait_for_callme, (void *)&ptharg);
 
-
-    int socFd;
     while(1)
     {
-        if(pts_point->update == true)
+        int socFd;
+        ret = ready_to_call(  plcdinfo,
+                        pts_point,
+                        &socFd,
+                        phead,
+                        bg_pjpginfo, 
+                        voiceCall_pjpginfo,
+                        videoCall_pjpginfo,
+                        exit_pjpginfo
+                        );
+        if(ret == EXIT_CHAT_CMD)
         {
-            pts_point->update == false;
-            int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
-            if(click < 0)
-            {
-                continue;
-            }
-            else if(click == 3)
-            {
-                //退出
-                printf("exit before ringon\n");
-                goto exit_before_ringon;
-            }
-            //打电话
-            else if(click == 2)
-            {
-                
-                socFd = client_create(4001, "202.192.32.29");
-                //已拨通、等待接电话
-                if(socFd > 0)
-                {
-                    char answerBuff[10] = {0};
-                    ret = recv(socFd, answerBuff, sizeof(answerBuff), 0);
-                    if(ret < 0)
-                    {
-                        perror("error exists in recv answer");
-                        goto exit_before_ringon;
-                    }
-                    //接通
-                    else if(strcmp(answerBuff, "ring on") == 0)
-                    {
-                        break;
-                    }
-                    //被挂断
-                    else if(strcmp(answerBuff, "ring off") == 0)
-                    {
-                        //继续
-                        draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-                        draw_pic(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
-                        draw_pic(plcdinfo, VIDEOCALL_x, VIDEOCALL_y, videoCall_pjpginfo);
-                        draw_pic(plcdinfo, EXIT_x, EXIT_y, exit_pjpginfo);
-                        continue;
-                    }
-                }
-            }
+            goto exit;
+
+        }
+
+        ret = in_call(  plcdinfo,
+                        pts_point,
+                        socFd,
+                        phead,
+                        bg_pjpginfo, 
+                        ringOff_pjpginfo,
+                        exit_pjpginfo);
+        if(ret == EXIT_CHAT_CMD)
+        {
+            shutdown(socFd, SHUT_RDWR);
+            goto exit;
+        }
+        else if(ret == RINGOFF_CMD)
+        {
+            shutdown(socFd, SHUT_RDWR);
+            continue;
         }
     }
-
     //通话
     //加载in call界面
+    
+    printf("client offlines in chat\n");
+
+    
+
+exit:
+    chat_destroyPic(bg_pjpginfo, 
+                    voiceCall_pjpginfo,
+                    videoCall_pjpginfo,
+                    ringOn_pjpginfo,
+                    ringOff_pjpginfo,
+                    exit_pjpginfo);
+    return 0;
+
+
+
+}
+
+void *wait_for_callme(void *arg)
+{
+    int c_port;
+    unsigned char *c_ip = NULL;
+    //创建服务器
+    server_create(4002, NULL, &c_port, &c_ip);
+    printf("somebody calls you\nip:%s\nport:%d", c_ip, c_port);
+    while(1);
+
+
+}
+
+static int in_call(pLcdInfo_t plcdinfo,
+                    pPoint_t pts_point,
+                    int socFd,
+                    pBtn_SqList_t phead,
+                    pJpgInfo_t bg_pjpginfo, 
+                    pJpgInfo_t ringOff_pjpginfo,
+                    pJpgInfo_t exit_pjpginfo
+                    )
+{
+    
     pts_point->update = false;
     clear_btn_sqlist(&phead);
     draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
     pBtn_SqList_t node = draw_btn(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo);
+    AddFromTail_btn_sqlist(phead, node);
+    node = draw_btn(plcdinfo, EXIT_x, EXIT_y, exit_pjpginfo);
     AddFromTail_btn_sqlist(phead, node);
 
     //初始化摄像头
@@ -208,17 +231,22 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
             if(click == 1)
             {
                 //挂机
-                shutdown(socFd, SHUT_RDWR);
-                break;
+                //shutdown(socFd, SHUT_RDWR);
+                return RINGOFF_CMD;
             }
-            printf("click:%d\n", click);
+            else if(click == 2)
+            {
+                //退出
+                return EXIT_CHAT_CMD;
+            }
         }
- 
+        
         //获取数据
         linux_v4l2_get_yuyv_data(&jpgdata);
         //大小大概为40k,变化
         //printf("size:%d, %d\n", strlen(jpgdata.data), jpgdata.size);
         //转换成jpginfo
+        
         videocall(plcdinfo, &jpgdata, socFd);
         /*
         *backlog:隐藏图标
@@ -227,32 +255,11 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         //draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }
-    printf("client offlines in chat\n");
-
-exit_before_ringon:
-    free_malloc(bg_pjpginfo, 
-                voiceCall_pjpginfo,
-                videoCall_pjpginfo,
-                ringOn_pjpginfo,
-                ringOff_pjpginfo,
-                exit_pjpginfo);
-    
 
 
 
 }
 
-void *wait_for_callme(void *arg)
-{
-    int c_port;
-    unsigned char *c_ip = NULL;
-    //创建服务器
-    server_create(4002, NULL, &c_port, &c_ip);
-    printf("somebody calls you\nip:%s\nport:%d", c_ip, c_port);
-    while(1);
-
-
-}
 
 
 #define MY_WIN_WIDTH        128
@@ -353,12 +360,163 @@ static bool draw_pic_notAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjp
 
 
 
-static void free_malloc(pJpgInfo_t bg_pjpginfo, 
-                        pJpgInfo_t voiceCall_pjpginfo,
-                        pJpgInfo_t videoCall_pjpginfo,
-                        pJpgInfo_t ringOn_pjpginfo,
-                        pJpgInfo_t ringOff_pjpginfo,
-                        pJpgInfo_t exit_pjpginfo)
+
+static int ready_to_call(   pLcdInfo_t plcdinfo,
+                            pPoint_t pts_point,
+                            int *psocFd,
+                            pBtn_SqList_t phead,
+                            pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t voiceCall_pjpginfo,
+                            pJpgInfo_t videoCall_pjpginfo,
+                            pJpgInfo_t exit_pjpginfo
+                            )
+{
+    
+    int ret;
+    
+    //加载界面
+    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+    pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
+    AddFromTail_btn_sqlist(phead, voiceCallBtn);
+    pBtn_SqList_t videoCallBtn = draw_btn(plcdinfo, VIDEOCALL_x, VIDEOCALL_y, videoCall_pjpginfo);
+    AddFromTail_btn_sqlist(phead, videoCallBtn);
+    pBtn_SqList_t exitBtn = draw_btn(plcdinfo, EXIT_x, EXIT_y, exit_pjpginfo);
+    AddFromTail_btn_sqlist(phead, exitBtn);
+    while(1)
+    {
+        if(pts_point->update == true)
+        {
+            pts_point->update == false;
+            int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
+            if(click < 0)
+            {
+                continue;
+            }
+            else if(click == 3)
+            {
+                //退出
+                printf("exit before ringon\n");
+                return EXIT_CHAT_CMD;
+                //goto exit_before_ringon;
+
+            }
+            //打电话
+            else if(click == 2)
+            {
+                
+                *psocFd = client_create(4001, "202.192.32.25");
+                //已拨通、等待接电话
+                if(*psocFd > 0)
+                {
+                    char answerBuff[10] = {0};
+                    ret = recv(*psocFd, answerBuff, sizeof(answerBuff), 0);
+                    if(ret < 0)
+                    {
+                        perror("error exists in recv answer");
+                        //goto exit_before_ringon;
+                        return EXIT_CHAT_CMD;
+                    }
+                    //接通
+                    else if(strcmp(answerBuff, "ring on") == 0)
+                    {
+                        break;
+                    }
+                    //被挂断
+                    else if(strcmp(answerBuff, "ring off") == 0)
+                    {
+                        //继续
+                        draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+                        draw_pic(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
+                        draw_pic(plcdinfo, VIDEOCALL_x, VIDEOCALL_y, videoCall_pjpginfo);
+                        draw_pic(plcdinfo, EXIT_x, EXIT_y, exit_pjpginfo);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
+
+
+}
+
+static int chat2_init_loadpic(   pJpgInfo_t *bg_pjpginfo, 
+                                pJpgInfo_t *voiceCall_pjpginfo,
+                                pJpgInfo_t *videoCall_pjpginfo,
+                                pJpgInfo_t *ringOn_pjpginfo,
+                                pJpgInfo_t *ringOff_pjpginfo,
+                                pJpgInfo_t *exit_pjpginfo)
+{
+
+    //加载背景
+    *bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for bg_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*bg_pjpginfo, "./image/chat/bg.jpg");
+
+
+    //加载 voiceCall、videoCall
+    *voiceCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for voiceCall_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*voiceCall_pjpginfo, "./image/chat/voiceCall.jpg");
+
+    *videoCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for videoCall_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*videoCall_pjpginfo, "./image/chat/videoCall.jpg");
+
+    //加载 ring on/off 按键
+    *ringOn_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for ringOn_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*ringOn_pjpginfo, "./image/chat/ringOn.jpg");
+
+    *ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for ringOff_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*ringOff_pjpginfo, "./image/chat/ringOff.jpg");
+    
+    //加载 exit
+    *exit_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for exit_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*exit_pjpginfo, "./image/chat/exit.jpg");
+
+
+
+
+
+
+}
+
+static void chat_destroyPic(pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t voiceCall_pjpginfo,
+                            pJpgInfo_t videoCall_pjpginfo,
+                            pJpgInfo_t ringOn_pjpginfo,
+                            pJpgInfo_t ringOff_pjpginfo,
+                            pJpgInfo_t exit_pjpginfo)
 {
     free(bg_pjpginfo->buff);
     free(voiceCall_pjpginfo->buff);

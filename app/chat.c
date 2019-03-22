@@ -45,6 +45,18 @@
 int decompress_jpgdataAndshow(  pLcdInfo_t plcdinfo, int x, int y, 
                                 pJpgData_t pjpgdata);
 static bool		draw_pic_notAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color);
+/*
+*功能：chat初始化 加载图片
+*返回值：
+*   成功：0
+*   失败：-1
+*/
+static int chat_init_loadpic(   pJpgInfo_t *bg_pjpginfo, 
+                                pJpgInfo_t *voiceCall_pjpginfo,
+                                pJpgInfo_t *videoCall_pjpginfo,
+                                pJpgInfo_t *ringOn_pjpginfo,
+                                pJpgInfo_t *ringOff_pjpginfo,
+                                pJpgInfo_t *exit_pjpginfo);
 
 struct wait_for_callme_arg{
     
@@ -59,6 +71,7 @@ struct wait_for_callme_arg{
 };
 void *wait_for_callme(void *arg);
 
+
 //通话状态
 static int chat_state;
 int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
@@ -66,62 +79,24 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     
     int ret;
 
-    //加载背景
-    pJpgInfo_t bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for bg_pjpginfo");
-        return -1;
-    }
-
-    decompress_jpg2buffer(bg_pjpginfo, "./image/chat/bg.jpg");
-    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-
-    //加载 voiceCall、videoCall
-    pJpgInfo_t voiceCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for voiceCall_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(voiceCall_pjpginfo, "./image/chat/voiceCall.jpg");
-
-     pJpgInfo_t videoCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for videoCall_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(videoCall_pjpginfo, "./image/chat/videoCall.jpg");
-
-    //加载 ring on/off 
-    pJpgInfo_t ringOn_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for ringOn_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(ringOn_pjpginfo, "./image/chat/ringOn.jpg");
-
-    pJpgInfo_t ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for ringOff_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringOff.jpg");
-
-    //加载 exit
-    pJpgInfo_t exit_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
-    if(bg_pjpginfo == NULL)
-    {
-        perror("fail to malloc for exit_pjpginfo");
-        return -1;
-    }
-    decompress_jpg2buffer(exit_pjpginfo, "./image/chat/exit.jpg");
+    pJpgInfo_t bg_pjpginfo; 
+    pJpgInfo_t voiceCall_pjpginfo; 
+    pJpgInfo_t videoCall_pjpginfo;
+    pJpgInfo_t ringOn_pjpginfo;
+    pJpgInfo_t ringOff_pjpginfo;
+    pJpgInfo_t exit_pjpginfo;
+    //初始化
+    chat_init_loadpic(  &bg_pjpginfo, 
+                        &voiceCall_pjpginfo,
+                        &videoCall_pjpginfo,
+                        &ringOn_pjpginfo,
+                        &ringOff_pjpginfo,
+                        &exit_pjpginfo);
 
     //添加按键
     pBtn_SqList_t   phead = create_btn_sqlist();
+    
+
     pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
     AddFromTail_btn_sqlist(phead, voiceCallBtn);
     pBtn_SqList_t videoCallBtn = draw_btn(plcdinfo, VIDEOCALL_x, VIDEOCALL_y, videoCall_pjpginfo);
@@ -224,6 +199,7 @@ void *wait_for_callme(void *arg)
         pBtn_SqList_t ringOffBtn = draw_btn(plcdinfo, RINGOFF_ANSWER_x, RINGOFF_ANSWER_y, ringOff_pjpginfo);
         AddFromTail_btn_sqlist(phead, ringOffBtn);
 
+        int click;
         //等待用户接电话
         while(1)
         {
@@ -231,7 +207,7 @@ void *wait_for_callme(void *arg)
             if(pts_point->update == true)
             {
                 pts_point->update == false;
-                int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
+                click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
                 if(click <= 0)
                 {
                     continue;
@@ -258,9 +234,10 @@ void *wait_for_callme(void *arg)
                     break;
                 }
             }
-
-
-
+        }
+        if(click == 1)
+        {
+            break;
 
         }
 
@@ -306,7 +283,6 @@ void *wait_for_callme(void *arg)
             //判断对端是否下线
             if(ret == 0)
             {
-                printf("Y\n");
                 break;
             }
             //修改剩余大小
@@ -315,7 +291,6 @@ void *wait_for_callme(void *arg)
         //判断对端是否下线
         if(ret == 0)
         {
-            printf("X\n");
             break;
         }
 
@@ -326,6 +301,7 @@ void *wait_for_callme(void *arg)
         draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }
+    
     chat_state = CHAT_STATE_RINGOFF;
     printf("server exits in chat\n\n");
 
@@ -438,5 +414,77 @@ static bool draw_pic_notAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjp
 	/*
 	 *backlog:返回值未完善
 	 */
+
+}
+
+
+static int chat_init_loadpic(   pJpgInfo_t *bg_pjpginfo, 
+                                pJpgInfo_t *voiceCall_pjpginfo,
+                                pJpgInfo_t *videoCall_pjpginfo,
+                                pJpgInfo_t *ringOn_pjpginfo,
+                                pJpgInfo_t *ringOff_pjpginfo,
+                                pJpgInfo_t *exit_pjpginfo)
+{
+
+    //加载背景
+    *bg_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for bg_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*bg_pjpginfo, "./image/chat/bg.jpg");
+
+
+    //加载 voiceCall、videoCall
+    *voiceCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for voiceCall_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*voiceCall_pjpginfo, "./image/chat/voiceCall.jpg");
+
+    *videoCall_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for videoCall_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*videoCall_pjpginfo, "./image/chat/videoCall.jpg");
+
+    //加载 ring on/off 按键
+    *ringOn_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for ringOn_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*ringOn_pjpginfo, "./image/chat/ringOn.jpg");
+
+    *ringOff_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for ringOff_pjpginfo");
+        return -1;
+    }
+
+    decompress_jpg2buffer(*ringOff_pjpginfo, "./image/chat/ringOff.jpg");
+    
+    //加载 exit
+    *exit_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for exit_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(*exit_pjpginfo, "./image/chat/exit.jpg");
+
+
+
+
+
 
 }
