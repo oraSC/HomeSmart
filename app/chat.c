@@ -246,6 +246,7 @@ void *wait_for_callme(void *arg)
     recv_jpginfo.rowsize = recv_jpginfo.width * recv_jpginfo.bicount / 8;
     recv_jpginfo.buff = (unsigned char *)malloc(recv_jpginfo.height *recv_jpginfo.rowsize);
 
+    JpgData_t recv_jpgdata;
     while(1)
     {
      
@@ -254,18 +255,23 @@ void *wait_for_callme(void *arg)
         /*
         *bug:偶尔出现丢失某一端，造成图像数据整体上移(单次发送超过20480 Byte)
         */
- 
-        int rest_size = A_FRAME_SIZE;
-        int recv_num = A_FRAME_SIZE / RECV_SINGLE_SIZE + 1;
+        /************************ 1.发送图像data大小 ***************************/
+        int totalSize;
+        Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
+        recv_jpgdata.size = totalSize;
+
+        /************************ 2.发送图像data ***************************/
+        int rest_size = totalSize;
+        int recv_num = totalSize / RECV_SINGLE_SIZE + 1;
         for(int i = 0; i < recv_num; i++)
         {
             if(rest_size > RECV_SINGLE_SIZE)
             {
-                ret = Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
+                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
             }
             else if(rest_size != 0)
             {
-                ret = Recv_andreply(socFd, recv_jpginfo.buff + i*RECV_SINGLE_SIZE, rest_size, 0);
+                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, rest_size, 0);
 
             }
             
@@ -282,8 +288,11 @@ void *wait_for_callme(void *arg)
         {
             break;
         }
-        
+
+        //解压成buff
+        decompress_jpgdata2buffer(recv_jpgdata.data, recv_jpgdata.size, &recv_jpginfo);
         draw_pic(plcdinfo, 80, 0, &recv_jpginfo);
+
         draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }

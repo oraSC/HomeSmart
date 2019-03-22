@@ -183,7 +183,7 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         //获取数据
         linux_v4l2_get_yuyv_data(&jpgdata);
         //大小大概为40k,变化
-        printf("size:%d, %d\n", strlen(jpgdata.data), jpgdata.size);
+        //printf("size:%d, %d\n", strlen(jpgdata.data), jpgdata.size);
         //转换成jpginfo
         videocall(plcdinfo, &jpgdata, socFd);
         /*
@@ -234,20 +234,22 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
     //send_jpginfo = src_jpginfo;
 
     //发送图像
-    /************************发送图像data大小***************************/
-
-
-    int rest_size = A_FRAME_SIZE;
-	int send_num = A_FRAME_SIZE / SEND_SINGLE_SIZE + 1;
+    /************************ 1.发送图像data大小 ***************************/
+    int totalSize = pjpgdata->size;
+    Send_andwait(socfd, &totalSize, sizeof(totalSize), 0);
+    
+    /************************ 2.发送图像data ***************************/
+    int rest_size = totalSize;
+	int send_num = totalSize / SEND_SINGLE_SIZE + 1;
   	for(int i = 0; i < send_num; i++)
 	{
 		if(rest_size > SEND_SINGLE_SIZE)
 		{
-			Send_andwait(socfd, src_jpginfo.buff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
+			Send_andwait(socfd, pjpgdata->data + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
 		}
 		else if(rest_size != 0)
 		{
-			Send_andwait(socfd, src_jpginfo.buff + i*SEND_SINGLE_SIZE, rest_size, 0);
+			Send_andwait(socfd, pjpgdata->data + i*SEND_SINGLE_SIZE, rest_size, 0);
 
 		}
 		//修改剩余大小

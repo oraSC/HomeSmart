@@ -293,7 +293,7 @@ int Send_andwait(int sockfd, const void *buff, size_t len, int flags)
 	}
 	if(RET != 1)
 	{
-		printf("failed\n");
+		printf("failed in Send_andwait\n");
 		return -1;
 	}
 	//printf("succeed\n");
