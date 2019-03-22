@@ -118,7 +118,7 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
             if(click == 2)
             {
                 
-                socFd = client_create(4001, "202.192.32.52");
+                socFd = client_create(4001, "202.192.32.29");
                 //已拨通、等待接电话
                 if(socFd > 0)
                 {
@@ -182,7 +182,8 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
  
         //获取数据
         linux_v4l2_get_yuyv_data(&jpgdata);
-
+        //大小大概为40k,变化
+        printf("size:%d, %d\n", strlen(jpgdata.data), jpgdata.size);
         //转换成jpginfo
         videocall(plcdinfo, &jpgdata, socFd);
         /*
@@ -229,20 +230,24 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 
     //压缩
     jpg_resize(&src_jpginfo, &resize_jpginfo, MY_WIN_WIDTH, MY_WIN_HEIGHT);
-    jpg_resize(&src_jpginfo, &send_jpginfo, A_FRAME_WIDTH, A_FRAME_HEIGHT);
+    //jpg_resize(&src_jpginfo, &send_jpginfo, A_FRAME_WIDTH, A_FRAME_HEIGHT);
+    //send_jpginfo = src_jpginfo;
 
     //发送图像
+    /************************发送图像data大小***************************/
+
+
     int rest_size = A_FRAME_SIZE;
 	int send_num = A_FRAME_SIZE / SEND_SINGLE_SIZE + 1;
   	for(int i = 0; i < send_num; i++)
 	{
 		if(rest_size > SEND_SINGLE_SIZE)
 		{
-			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
+			Send_andwait(socfd, src_jpginfo.buff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
 		}
 		else if(rest_size != 0)
 		{
-			Send_andwait(socfd, send_jpginfo.buff + i*SEND_SINGLE_SIZE, rest_size, 0);
+			Send_andwait(socfd, src_jpginfo.buff + i*SEND_SINGLE_SIZE, rest_size, 0);
 
 		}
 		//修改剩余大小
@@ -255,7 +260,7 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
     
     //释放资源
     free(src_jpginfo.buff);
-    free(send_jpginfo.buff);
+    //free(send_jpginfo.buff);
     free(resize_jpginfo.buff);
 
 }
