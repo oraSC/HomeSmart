@@ -251,6 +251,12 @@ ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
 
 	}
 
+	else if(ret == 0)
+	{
+		printf("client offline\n");
+		return 0;
+	}
+	
 	//回复接收成功
 	int RET = 1;
 	ret2 = send(sockfd, &RET, sizeof(RET), 0);
@@ -261,12 +267,7 @@ ssize_t Recv_andreply(int sockfd, void *buff, size_t len, int flags)
 
 	}
 
-	if(ret == 0)
-	{
-		printf("client offline\n");
-		return 0;
-	}
-	return len;
+	return len;	
 
 }
 

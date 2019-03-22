@@ -19,6 +19,8 @@
 #include "../lib/libjpeg/jpeglib.h"
 #include "../lib/socket/mysocket.h"
 
+#define CHAT_STATE_INCALL       1
+#define CHAT_STATE_RINGOFF      2
 #define RINGON_ANSWER_x         450
 #define RINGON_ANSWER_y         400
 #define RINGOFF_ANSWER_x        300
@@ -52,11 +54,13 @@ struct wait_for_callme_arg{
     pJpgInfo_t      bg_pjpginfo;
     pJpgInfo_t      ringOn_pjpginfo;
     pJpgInfo_t      ringOff_pjpginfo;
-
+    pJpgInfo_t      exit_jpginfo;
 
 };
 void *wait_for_callme(void *arg);
 
+//通话状态
+static int chat_state;
 int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 {
     
@@ -107,6 +111,15 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     }
     decompress_jpg2buffer(ringOff_pjpginfo, "./image/chat/ringOff.jpg");
 
+    //加载 exit
+    pJpgInfo_t exit_pjpginfo = (JpgInfo_t *)malloc(sizeof(JpgInfo_t));
+    if(bg_pjpginfo == NULL)
+    {
+        perror("fail to malloc for exit_pjpginfo");
+        return -1;
+    }
+    decompress_jpg2buffer(exit_pjpginfo, "./image/chat/exit.jpg");
+
     //添加按键
     pBtn_SqList_t   phead = create_btn_sqlist();
     pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
@@ -136,10 +149,16 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 
     //开启摄像头捕捉
     //linux_v4l2_start_yuyv_capturing();
+    chat_state = CHAT_STATE_INCALL;
     JpgInfo_t jpginfo;
     while(1)
     {
-        sleep(1);
+
+        if(chat_state == CHAT_STATE_RINGOFF)
+        {
+            break;
+        }
+        
         // if(pts_point->update == true)
         // {
         //     pts_point->update == false;
@@ -188,56 +207,64 @@ void *wait_for_callme(void *arg)
 
     int c_port;
     unsigned char *c_ip = NULL;
-    //创建服务器
-    int socFd;
-    socFd = server_create(4001, NULL, &c_port, &c_ip);
-    printf("----------desktop---------\nsomebody calls you\nip:%s\nport:%d\n", c_ip, c_port);
-    
-    //加载有电话来界面
-    clear_btn_sqlist(&phead);
-    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-    pBtn_SqList_t ringOnBtn = draw_btn(plcdinfo, RINGON_ANSWER_x, RINGON_ANSWER_y, ringOn_pjpginfo);
-    AddFromTail_btn_sqlist(phead, ringOnBtn);
-    pBtn_SqList_t ringOffBtn = draw_btn(plcdinfo, RINGOFF_ANSWER_x, RINGOFF_ANSWER_y, ringOff_pjpginfo);
-    AddFromTail_btn_sqlist(phead, ringOffBtn);
 
-    //等待用户接电话
+    int socFd;
     while(1)
     {
+        //创建服务器
 
-        if(pts_point->update == true)
+        socFd = server_create(4001, NULL, &c_port, &c_ip);
+        printf("----------desktop---------\nsomebody calls you\nip:%s\nport:%d\n", c_ip, c_port);
+        
+        //加载有电话来界面
+        clear_btn_sqlist(&phead);
+        draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+        pBtn_SqList_t ringOnBtn = draw_btn(plcdinfo, RINGON_ANSWER_x, RINGON_ANSWER_y, ringOn_pjpginfo);
+        AddFromTail_btn_sqlist(phead, ringOnBtn);
+        pBtn_SqList_t ringOffBtn = draw_btn(plcdinfo, RINGOFF_ANSWER_x, RINGOFF_ANSWER_y, ringOff_pjpginfo);
+        AddFromTail_btn_sqlist(phead, ringOffBtn);
+
+        //等待用户接电话
+        while(1)
         {
-            pts_point->update == false;
-            int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
-            if(click <= 0)
+
+            if(pts_point->update == true)
             {
-                continue;
-            }
-            else if(click == 1)
-            {
-                ret = send(socFd, "ring on", strlen("ring on"), 0);
-                if(ret < 0)
+                pts_point->update == false;
+                int click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
+                if(click <= 0)
                 {
-                    perror("error exists in send");
+                    continue;
                 }
-                break;
-            }
-            else if(click == 2)
-            {
-                ret = send(socFd, "ring off", strlen("ring off"), 0);
-                if(ret < 0)
+                //answer
+                else if(click == 1)
                 {
-                    perror("error exists in send");
+                    ret = send(socFd, "ring on", strlen("ring on"), 0);
+                    if(ret < 0)
+                    {
+                        perror("error exists in send");
+                    }
+                    break;
                 }
-                break;
+                //ring off
+                else if(click == 2)
+                {
+                    ret = send(socFd, "ring off", strlen("ring off"), 0);
+                    if(ret < 0)
+                    {
+                        perror("error exists in send");
+                    }
+                    shutdown(socFd, SHUT_RDWR);
+                    break;
+                }
             }
+
+
+
+
         }
 
-
-
-
     }
-    
     //in call
     JpgInfo_t recv_jpginfo;
     recv_jpginfo.width = A_FRAME_WIDTH;
@@ -246,6 +273,7 @@ void *wait_for_callme(void *arg)
     recv_jpginfo.rowsize = recv_jpginfo.width * recv_jpginfo.bicount / 8;
     recv_jpginfo.buff = (unsigned char *)malloc(recv_jpginfo.height *recv_jpginfo.rowsize);
 
+    //通话
     JpgData_t recv_jpgdata;
     while(1)
     {
@@ -257,7 +285,7 @@ void *wait_for_callme(void *arg)
         */
         /************************ 1.发送图像data大小 ***************************/
         int totalSize;
-        Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
+        ret = Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
         recv_jpgdata.size = totalSize;
 
         /************************ 2.发送图像data ***************************/
@@ -278,6 +306,7 @@ void *wait_for_callme(void *arg)
             //判断对端是否下线
             if(ret == 0)
             {
+                printf("Y\n");
                 break;
             }
             //修改剩余大小
@@ -286,6 +315,7 @@ void *wait_for_callme(void *arg)
         //判断对端是否下线
         if(ret == 0)
         {
+            printf("X\n");
             break;
         }
 
@@ -296,7 +326,8 @@ void *wait_for_callme(void *arg)
         draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
     }
-    printf("end of call\n");
+    chat_state = CHAT_STATE_RINGOFF;
+    printf("server exits in chat\n\n");
 
 
 }
