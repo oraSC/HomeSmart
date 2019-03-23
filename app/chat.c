@@ -148,8 +148,8 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     pthread_create(&waitForCallMePthId, NULL, wait_for_callme, (void *)&ptharg);
 
     // //voice recv
-    pthread_t voiceRecvPthId;
-    pthread_create(&voiceRecvPthId, NULL, &voiceRecvRoutine, NULL);
+    // pthread_t voiceRecvPthId;
+    // pthread_create(&voiceRecvPthId, NULL, &voiceRecvRoutine, NULL);
 
     //捕获的jpg数据
     JpgData_t jpgdata;

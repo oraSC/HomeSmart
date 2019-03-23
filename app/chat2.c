@@ -166,9 +166,9 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
         }
 
         //voice send
-        socFd_voice = client_create(VOICECALL_PORT, s_ip);
-        pthread_t voiceSendPthId;
-        pthread_create(&voiceSendPthId, NULL, &voiceSendRoutine,&socFd_voice);
+        // socFd_voice = client_create(VOICECALL_PORT, s_ip);
+        // pthread_t voiceSendPthId;
+        // pthread_create(&voiceSendPthId, NULL, &voiceSendRoutine,&socFd_voice);
         
         ret = in_call(  plcdinfo,
                         pts_point,
