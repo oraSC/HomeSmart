@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "chat.h"
 #include "../lib/jpg/JPG.h"
@@ -18,6 +20,14 @@
 #include "../lib/lcd/LCD.h"
 #include "../lib/libjpeg/jpeglib.h"
 #include "../lib/socket/mysocket.h"
+
+//CMD
+#define ANSWER_CMD              4
+#define END_OF_CALL_CMD         5
+
+//PORT
+#define VIDEOCALL_PORT          4001
+#define VOICECALL_PORT          4002
 
 #define CHAT_STATE_INCALL       1
 #define CHAT_STATE_RINGOFF      2
@@ -57,20 +67,41 @@ static int chat_init_loadpic(   pJpgInfo_t *bg_pjpginfo,
                                 pJpgInfo_t *ringOn_pjpginfo,
                                 pJpgInfo_t *ringOff_pjpginfo,
                                 pJpgInfo_t *exit_pjpginfo);
+/*
+*功能：准备接电话，可选择ringOn / ringOff
+*返回值：CMD值
+*/
+static int ready_to_answer( pLcdInfo_t plcdinfo,
+                            pPoint_t pts_point,
+                            int *psocFd,
+                            pBtn_SqList_t phead,
+                            pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t ringOn_pjpginfo,
+                            pJpgInfo_t ringOff_pjpginfo
+                            );
+/*
+*功能：通话中,接受功能
+*返回值：CMD
+*/
+static int in_call_recv(pLcdInfo_t plcdinfo,
+                        int socFd,
+                        pJpgInfo_t ringOff_pjpginfo
+                        );
 
-struct wait_for_callme_arg{
-    
-    pLcdInfo_t      plcdinfo;
-    pBtn_SqList_t   phead;
-    pPoint_t        pts_point;
-    pJpgInfo_t      bg_pjpginfo;
-    pJpgInfo_t      ringOn_pjpginfo;
-    pJpgInfo_t      ringOff_pjpginfo;
-    pJpgInfo_t      exit_jpginfo;
+struct wait_for_callme_arg{ pLcdInfo_t      plcdinfo;
+                            pBtn_SqList_t   phead;
+                            pPoint_t        pts_point;
+                            pJpgInfo_t      bg_pjpginfo;
+                            pJpgInfo_t      ringOn_pjpginfo;
+                            pJpgInfo_t      ringOff_pjpginfo;
+                            pJpgInfo_t      exit_jpginfo;
 
 };
 void *wait_for_callme(void *arg);
-
+/*
+*功能：发送语音线程功能函数
+*/
+void *voiceRecvRoutine(void *arg);
 
 //通话状态
 static int chat_state;
@@ -116,6 +147,10 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 
     pthread_create(&waitForCallMePthId, NULL, wait_for_callme, (void *)&ptharg);
 
+    //voice recv
+    pthread_t voiceRecvPthId;
+    pthread_create(&voiceRecvPthId, NULL, &voiceRecvRoutine, NULL);
+
     //捕获的jpg数据
     JpgData_t jpgdata;
 
@@ -131,7 +166,7 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 
         if(chat_state == CHAT_STATE_RINGOFF)
         {
-            break;
+            //break;
         }
         
         // if(pts_point->update == true)
@@ -180,134 +215,124 @@ void *wait_for_callme(void *arg)
     pJpgInfo_t ringOff_pjpginfo = ((struct wait_for_callme_arg *)arg)->ringOff_pjpginfo;
     pJpgInfo_t ringOn_pjpginfo = ((struct wait_for_callme_arg *)arg)->ringOn_pjpginfo;
 
-    int c_port;
-    unsigned char *c_ip = NULL;
-
-    int socFd;
-    while(1)
-    {
-        //创建服务器
-
-        socFd = server_create(4001, NULL, &c_port, &c_ip);
-        printf("----------desktop---------\nsomebody calls you\nip:%s\nport:%d\n", c_ip, c_port);
-        
-        //加载有电话来界面
-        clear_btn_sqlist(&phead);
-        draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
-        pBtn_SqList_t ringOnBtn = draw_btn(plcdinfo, RINGON_ANSWER_x, RINGON_ANSWER_y, ringOn_pjpginfo);
-        AddFromTail_btn_sqlist(phead, ringOnBtn);
-        pBtn_SqList_t ringOffBtn = draw_btn(plcdinfo, RINGOFF_ANSWER_x, RINGOFF_ANSWER_y, ringOff_pjpginfo);
-        AddFromTail_btn_sqlist(phead, ringOffBtn);
-
-        int click;
-        //等待用户接电话
-        while(1)
-        {
-
-            if(pts_point->update == true)
-            {
-                pts_point->update == false;
-                click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
-                if(click <= 0)
-                {
-                    continue;
-                }
-                //answer
-                else if(click == 1)
-                {
-                    ret = send(socFd, "ring on", strlen("ring on"), 0);
-                    if(ret < 0)
-                    {
-                        perror("error exists in send");
-                    }
-                    break;
-                }
-                //ring off
-                else if(click == 2)
-                {
-                    ret = send(socFd, "ring off", strlen("ring off"), 0);
-                    if(ret < 0)
-                    {
-                        perror("error exists in send");
-                    }
-                    shutdown(socFd, SHUT_RDWR);
-                    break;
-                }
-            }
-        }
-        if(click == 1)
-        {
-            break;
-
-        }
-
-    }
-    //in call
-    JpgInfo_t recv_jpginfo;
-    recv_jpginfo.width = A_FRAME_WIDTH;
-    recv_jpginfo.height = A_FRAME_HEIGHT;
-    recv_jpginfo.bicount = 24;
-    recv_jpginfo.rowsize = recv_jpginfo.width * recv_jpginfo.bicount / 8;
-    recv_jpginfo.buff = (unsigned char *)malloc(recv_jpginfo.height *recv_jpginfo.rowsize);
-
-    //通话
-    JpgData_t recv_jpgdata;
-    while(1)
-    {
-     
-        bzero(recv_jpginfo.buff, sizeof(recv_jpginfo.buff));
-        //接受图像
-        /*
-        *bug:偶尔出现丢失某一端，造成图像数据整体上移(单次发送超过20480 Byte)
-        */
-        /************************ 1.发送图像data大小 ***************************/
-        int totalSize;
-        ret = Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
-        recv_jpgdata.size = totalSize;
-
-        /************************ 2.发送图像data ***************************/
-        int rest_size = totalSize;
-        int recv_num = totalSize / RECV_SINGLE_SIZE + 1;
-        for(int i = 0; i < recv_num; i++)
-        {
-            if(rest_size > RECV_SINGLE_SIZE)
-            {
-                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
-            }
-            else if(rest_size != 0)
-            {
-                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, rest_size, 0);
-
-            }
-            
-            //判断对端是否下线
-            if(ret == 0)
-            {
-                break;
-            }
-            //修改剩余大小
-            rest_size = rest_size - RECV_SINGLE_SIZE;
-        }
-        //判断对端是否下线
-        if(ret == 0)
-        {
-            break;
-        }
-
-        //解压成buff
-        decompress_jpgdata2buffer(recv_jpgdata.data, recv_jpgdata.size, &recv_jpginfo);
-        draw_pic(plcdinfo, 80, 0, &recv_jpginfo);
-
-        draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
-
-    }
     
-    chat_state = CHAT_STATE_RINGOFF;
-    printf("server exits in chat\n\n");
+    while(1)
+    {
+        int socFd;
+        ret = ready_to_answer(  plcdinfo,
+                                pts_point,
+                                &socFd,
+                                phead,
+                                bg_pjpginfo, 
+                                ringOn_pjpginfo,
+                                ringOff_pjpginfo
+                                );
+        if(ret != ANSWER_CMD)
+        {
+            printf("what! not ANSWER_CMD\n");
+            continue;
+        }
+
+        //in call recv
+        ret = in_call_recv(plcdinfo,socFd,ringOff_pjpginfo);
+        if(ret != END_OF_CALL_CMD)
+        {   
+            printf("what! not END_OF_CALL_CMD\n");
+            continue;
+        }
+        chat_state = CHAT_STATE_RINGOFF;
+        printf("stop to recv in chat\n");
+
+    }
 
 
 }
 
+
+void *voiceRecvRoutine(void *arg)
+{
+    int ret;
+
+    while(1)
+    {
+        //创建服务器
+        int c_port;
+        unsigned char *c_ip = NULL;
+        int socFd = server_create(VOICECALL_PORT, NULL, &c_port, &c_ip);
+        printf("\nsomebody connect your voice recv server\nip:%s\nport:%d\n", c_ip, c_port);
+        
+        //声明wav音频buffer
+        char recvWavBuff[100000];
+        while(1)
+        {
+            bzero(recvWavBuff, sizeof(recvWavBuff));
+            //接受语音
+            /************************ 1.接收音频data大小 ***************************/
+            int totalSize;
+
+            ret = Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
+            printf("recv size:%d\n", totalSize);
+            /************************ 2.接收data ***************************/
+            int rest_size = totalSize;
+            int recv_num = totalSize / RECV_SINGLE_SIZE + 1;
+            for(int i = 0; i < recv_num; i++)
+            {
+                if(rest_size > RECV_SINGLE_SIZE)
+                {
+                    ret = Recv_andreply(socFd, recvWavBuff + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
+                }
+                else if(rest_size != 0)
+                {
+                    ret = Recv_andreply(socFd, recvWavBuff + i*RECV_SINGLE_SIZE, rest_size, 0);
+
+                }
+                
+                //判断对端是否下线
+                if(ret == 0)
+                {
+                    break;
+                }
+                //修改剩余大小
+                rest_size = rest_size - RECV_SINGLE_SIZE;
+            }
+            //判断对端是否下线
+            if(ret == 0)
+            {       
+                    shutdown(socFd, SHUT_RDWR);
+                    break;
+            }
+            //创建、写入recv.wav
+            int recvWavFd = open("./tmp/recv.wav", O_RDWR | O_CREAT);
+            if(recvWavFd < 0)
+            {
+                perror("fail to open ./tmp/recv.wav");
+
+            }
+            ret = write(recvWavFd, recvWavBuff, totalSize);
+            if(ret < 0)
+            {
+                perror("fail to write recvWavBuff into ./tmp/recv.wav");
+            }
+            ret = close(recvWavFd);
+            if(ret < 0)
+            {
+                perror("fail to close ./tmp/recv.wav");
+            }
+
+            //播放
+            system("aplay ./tmp/recv.wav");
+
+        }
+
+
+
+    }
+
+
+
+
+
+}
 
 int decompress_jpgdataAndshow(pLcdInfo_t plcdinfo, int x, int y, pJpgData_t pjpgdata)
 {
@@ -488,3 +513,137 @@ static int chat_init_loadpic(   pJpgInfo_t *bg_pjpginfo,
 
 
 }
+
+
+static int ready_to_answer( pLcdInfo_t plcdinfo,
+                            pPoint_t pts_point,
+                            int *psocFd,
+                            pBtn_SqList_t phead,
+                            pJpgInfo_t bg_pjpginfo, 
+                            pJpgInfo_t ringOn_pjpginfo,
+                            pJpgInfo_t ringOff_pjpginfo
+                            )
+{
+
+    int ret;
+
+    //创建服务器
+    int c_port;
+    unsigned char *c_ip = NULL;
+    *psocFd = server_create(VIDEOCALL_PORT, NULL, &c_port, &c_ip);
+    printf("\nsomebody connect your video recv server\nip:%s\nport:%d\n", c_ip, c_port);
+    
+    //加载有电话来界面
+    clear_btn_sqlist(&phead);
+    draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
+    pBtn_SqList_t ringOnBtn = draw_btn(plcdinfo, RINGON_ANSWER_x, RINGON_ANSWER_y, ringOn_pjpginfo);
+    AddFromTail_btn_sqlist(phead, ringOnBtn);
+    pBtn_SqList_t ringOffBtn = draw_btn(plcdinfo, RINGOFF_ANSWER_x, RINGOFF_ANSWER_y, ringOff_pjpginfo);
+    AddFromTail_btn_sqlist(phead, ringOffBtn);
+
+    int click;
+    //等待用户接电话
+    while(1)
+    {
+
+        if(pts_point->update == true)
+        {
+            pts_point->update == false;
+            click = find_which_btn_click(phead, pts_point->X, pts_point->Y);
+            if(click <= 0)
+            {
+                continue;
+            }
+            //answer
+            else if(click == 1)
+            {
+                ret = send(*psocFd, "ring on", strlen("ring on"), 0);
+                if(ret < 0)
+                {
+                    perror("error exists in send");
+                    return -1;
+                }
+                return ANSWER_CMD;
+            }
+            //ring off
+            else if(click == 2)
+            {
+                ret = send(*psocFd, "ring off", strlen("ring off"), 0);
+                if(ret < 0)
+                {
+                    perror("error exists in send");
+                }
+                shutdown(*psocFd, SHUT_RDWR);
+                break;
+            }
+        }
+    }
+    
+
+}
+
+
+static int in_call_recv( pLcdInfo_t plcdinfo,
+                    int socFd,
+                    pJpgInfo_t ringOff_pjpginfo
+                    )
+{
+
+    int ret;
+
+    JpgInfo_t recv_jpginfo;
+    recv_jpginfo.width = A_FRAME_WIDTH;
+    recv_jpginfo.height = A_FRAME_HEIGHT;
+    recv_jpginfo.bicount = 24;
+    recv_jpginfo.rowsize = recv_jpginfo.width * recv_jpginfo.bicount / 8;
+    recv_jpginfo.buff = (unsigned char *)malloc(recv_jpginfo.height *recv_jpginfo.rowsize);
+
+    //通话
+    JpgData_t recv_jpgdata;
+    while(1)
+    {
+     
+        bzero(recv_jpginfo.buff, sizeof(recv_jpginfo.buff));
+        //接受图像
+        /*
+        *bug:偶尔出现丢失某一端，造成图像数据整体上移(单次发送超过20480 Byte)
+        */
+        /************************ 1.接收图像data大小 ***************************/
+        int totalSize;
+        ret = Recv_andreply(socFd, &totalSize, sizeof(totalSize), 0);
+        recv_jpgdata.size = totalSize;
+
+        /************************ 2.接收图像data ***************************/
+        int rest_size = totalSize;
+        int recv_num = totalSize / RECV_SINGLE_SIZE + 1;
+        for(int i = 0; i < recv_num; i++)
+        {
+            if(rest_size > RECV_SINGLE_SIZE)
+            {
+                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, RECV_SINGLE_SIZE, 0);
+            }
+            else if(rest_size != 0)
+            {
+                ret = Recv_andreply(socFd, recv_jpgdata.data + i*RECV_SINGLE_SIZE, rest_size, 0);
+
+            }
+            
+            //判断对端是否下线
+            if(ret == 0)
+            {
+                return END_OF_CALL_CMD;
+            }
+            //修改剩余大小
+            rest_size = rest_size - RECV_SINGLE_SIZE;
+        }
+        
+
+        //解压成buff
+        decompress_jpgdata2buffer(recv_jpgdata.data, recv_jpgdata.size, &recv_jpginfo);
+        draw_pic(plcdinfo, 80, 0, &recv_jpginfo);
+
+        draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
+
+    }
+}
+    

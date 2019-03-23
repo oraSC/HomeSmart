@@ -4,6 +4,9 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "chat2.h"
 #include "../lib/jpg/JPG.h"
@@ -17,6 +20,11 @@
 #define EXIT_CHAT_CMD           1
 #define RINGOFF_CMD             2
 
+//PORT
+#define VIDEOCALL_PORT          4001
+#define VOICECALL_PORT          4002
+
+//POSITION
 #define RINGON_ANSWER_x         450
 #define RINGON_ANSWER_y         400
 #define RINGOFF_ANSWER_x        300
@@ -29,6 +37,9 @@
 #define RINGOFF_INCALL_y        350
 #define EXIT_x                  0
 #define EXIT_y                  0
+
+//other
+#define SEND_SINGLE_SIZE    15360  
 
 /*
 *功能：解压jpgddata并在lcd中显示
@@ -47,6 +58,10 @@ struct wait_for_callme_arg{
 };
 void *wait_for_callme(void *arg);
 
+/*
+*功能：发送语音线程功能函数
+*/
+void *voiceSendRoutine(void *arg);
 
 //释放堆内存
 static void chat_destroyPic(pJpgInfo_t bg_pjpginfo, 
@@ -72,7 +87,8 @@ static int chat2_init_loadpic(   pJpgInfo_t *bg_pjpginfo,
 *功能：准备拨话，可选择voiceCall / videoCall
 *返回值：CMD值
 */
-static int ready_to_call(   pLcdInfo_t plcdinfo,
+static int ready_to_call(   unsigned char *s_ip,
+                            pLcdInfo_t plcdinfo,
                             pPoint_t pts_point,
                             int *psocfd,
                             pBtn_SqList_t phead,
@@ -126,41 +142,55 @@ int chat2(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     ptharg.pts_point = pts_point;
     pthread_create(&waitForCallMePthId, NULL, wait_for_callme, (void *)&ptharg);
 
+    unsigned char *s_ip = "202.192.32.17"; 
     while(1)
     {
-        int socFd;
-        ret = ready_to_call(  plcdinfo,
-                        pts_point,
-                        &socFd,
-                        phead,
-                        bg_pjpginfo, 
-                        voiceCall_pjpginfo,
-                        videoCall_pjpginfo,
-                        exit_pjpginfo
-                        );
+        //套接字声明
+        int socFd_video;
+        int socFd_voice;
+
+        ret = ready_to_call(s_ip,
+                            plcdinfo,
+                            pts_point,
+                            &socFd_video,
+                            phead,
+                            bg_pjpginfo, 
+                            voiceCall_pjpginfo,
+                            videoCall_pjpginfo,
+                            exit_pjpginfo
+                            );
         if(ret == EXIT_CHAT_CMD)
         {
             goto exit;
 
         }
 
+        //voice send
+        socFd_voice = client_create(VOICECALL_PORT, s_ip);
+        pthread_t voiceSendPthId;
+        pthread_create(&voiceSendPthId, NULL, &voiceSendRoutine,&socFd_voice);
+        
         ret = in_call(  plcdinfo,
                         pts_point,
-                        socFd,
+                        socFd_video,
                         phead,
                         bg_pjpginfo, 
                         ringOff_pjpginfo,
                         exit_pjpginfo);
+        
         if(ret == EXIT_CHAT_CMD)
         {
-            shutdown(socFd, SHUT_RDWR);
+            shutdown(socFd_video, SHUT_RDWR);
             goto exit;
         }
         else if(ret == RINGOFF_CMD)
         {
-            shutdown(socFd, SHUT_RDWR);
+            shutdown(socFd_video, SHUT_RDWR);
+            linux_v4l2_yuyv_quit();
             continue;
         }
+
+        
     }
     //通话
     //加载in call界面
@@ -187,12 +217,83 @@ void *wait_for_callme(void *arg)
     int c_port;
     unsigned char *c_ip = NULL;
     //创建服务器
-    server_create(4002, NULL, &c_port, &c_ip);
-    printf("somebody calls you\nip:%s\nport:%d", c_ip, c_port);
+    //server_create(4002, NULL, &c_port, &c_ip);
+    //printf("somebody calls you\nip:%s\nport:%d", c_ip, c_port);
     while(1);
 
 
 }
+
+void *voiceSendRoutine(void *arg)
+{
+    int ret;
+    
+    //转换套接字
+    int socFd = *((int *)arg);
+    
+    //声明wav音频buffer
+    char sendWavBuff[100000];
+    while(1)
+    {
+
+        bzero(sendWavBuff, sizeof(sendWavBuff));
+
+        //录音
+        system("arecord  -d1 -c1 -r16000 -twav -fS16_LE ./tmp/send.wav");
+        //打开、测量文件大小、读取文件信息 send.wav
+        int sendWavFd = open("./tmp/send.wav", O_RDWR);
+        if(sendWavFd < 0)
+        {
+            perror("fail to open ./tmp/send.wav");
+
+        }
+
+        int filesize = lseek(sendWavFd, 0, SEEK_END);
+        lseek(sendWavFd, 0, SEEK_SET);
+
+        ret = read(sendWavFd, sendWavBuff, filesize);
+        if(ret < 0)
+        {
+            perror("fail to read sendWavBuff from ./tmp/send.wav");
+        }
+        
+        ret = close(sendWavFd);
+        if(ret < 0)
+        {
+            perror("fail to close ./tmp/send.wav");
+        }
+
+        //发送语音
+        /************************ 1.发送音频data大小 ***************************/
+        int totalSize = filesize;
+        printf("send size:%d\n", totalSize);
+        ret = Send_andwait(socFd, &totalSize, sizeof(totalSize), 0);
+        
+        /************************ 2.接收data ***************************/
+        int rest_size = totalSize;
+        int send_num = totalSize / SEND_SINGLE_SIZE + 1;
+  	    for(int i = 0; i < send_num; i++)
+	    {
+            if(rest_size > SEND_SINGLE_SIZE)
+            {
+                Send_andwait(socFd, sendWavBuff + i*SEND_SINGLE_SIZE, SEND_SINGLE_SIZE, 0);
+            }
+            else if(rest_size != 0)
+            {
+                Send_andwait(socFd, sendWavBuff + i*SEND_SINGLE_SIZE, rest_size, 0);
+
+            }
+            //修改剩余大小
+            rest_size = rest_size - SEND_SINGLE_SIZE;
+
+	    }
+
+
+    }
+
+
+}
+
 
 static int in_call(pLcdInfo_t plcdinfo,
                     pPoint_t pts_point,
@@ -269,7 +370,7 @@ static int in_call(pLcdInfo_t plcdinfo,
 #define A_FRAME_WIDTH       640
 #define A_FRAME_HEIGHT      480
 #define A_FRAME_SIZE        (A_FRAME_HEIGHT * A_FRAME_WIDTH * 3)    
-#define SEND_SINGLE_SIZE    15360  
+
 
 int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 {
@@ -319,49 +420,8 @@ int videocall(pLcdInfo_t plcdinfo, pJpgData_t pjpgdata, int socfd)
 
 }
 
-
-static bool draw_pic_notAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
-{
-	unsigned int *base = plcdinfo->base + y * plcdinfo->width + x;
-	
-	//画图片
-	
-	
-	int min_W = (plcdinfo->width  - x) < pjpginfo->width  ? plcdinfo->width -  x : pjpginfo->width;
-	int min_H = (plcdinfo->height - y) < pjpginfo->height ? plcdinfo->height - y : pjpginfo->height;
-	//printf("minW:%d, minH:%d",min_W,min_H);
-	for(int rows = 0; rows < min_H - 1; rows++)
-	{
-		
-		for(int cols = 0; cols < min_W - 1; cols++)
-		{
-			unsigned char *pR = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
-			unsigned char *pG = pR + 1;
-			unsigned char *pB = pR + 2;
-			if(!((*pR - ((0xFF<<0)&color) < 10) || (*pG - ((0xFF<<8)&color) < 10)  || (*pB - ((0xFF<<16)&color) < 10)) )
-			
-			{
-			memcpy(base + cols, pjpginfo->buff + rows * pjpginfo->rowsize  + cols * 3, 3 );
-			}
-			
-			//printf("%d\n",cols);	
-		}
-		//printf("base add%d\n", plcdinfo->width);	
-		base += plcdinfo->width;
-	
-	
-	}
-
-	/*
-	 *backlog:返回值未完善
-	 */
-
-}
-
-
-
-
-static int ready_to_call(   pLcdInfo_t plcdinfo,
+static int ready_to_call(   unsigned char *s_ip,    
+                            pLcdInfo_t plcdinfo,
                             pPoint_t pts_point,
                             int *psocFd,
                             pBtn_SqList_t phead,
@@ -375,6 +435,7 @@ static int ready_to_call(   pLcdInfo_t plcdinfo,
     int ret;
     
     //加载界面
+    clear_btn_sqlist(&phead);
     draw_pic(plcdinfo, 0, 0, bg_pjpginfo);
     pBtn_SqList_t voiceCallBtn = draw_btn(plcdinfo, VOICECALL_x, VOICECALL_y, voiceCall_pjpginfo);
     AddFromTail_btn_sqlist(phead, voiceCallBtn);
@@ -404,7 +465,7 @@ static int ready_to_call(   pLcdInfo_t plcdinfo,
             else if(click == 2)
             {
                 
-                *psocFd = client_create(4001, "202.192.32.25");
+                *psocFd = client_create(VIDEOCALL_PORT, s_ip);
                 //已拨通、等待接电话
                 if(*psocFd > 0)
                 {
@@ -524,5 +585,44 @@ static void chat_destroyPic(pJpgInfo_t bg_pjpginfo,
     free(ringOn_pjpginfo->buff);
     free(ringOff_pjpginfo->buff);
     free(exit_pjpginfo->buff);
+
+}
+
+
+static bool draw_pic_notAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
+{
+	unsigned int *base = plcdinfo->base + y * plcdinfo->width + x;
+	
+	//画图片
+	
+	
+	int min_W = (plcdinfo->width  - x) < pjpginfo->width  ? plcdinfo->width -  x : pjpginfo->width;
+	int min_H = (plcdinfo->height - y) < pjpginfo->height ? plcdinfo->height - y : pjpginfo->height;
+	//printf("minW:%d, minH:%d",min_W,min_H);
+	for(int rows = 0; rows < min_H - 1; rows++)
+	{
+		
+		for(int cols = 0; cols < min_W - 1; cols++)
+		{
+			unsigned char *pR = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
+			unsigned char *pG = pR + 1;
+			unsigned char *pB = pR + 2;
+			if(!((*pR - ((0xFF<<0)&color) < 10) || (*pG - ((0xFF<<8)&color) < 10)  || (*pB - ((0xFF<<16)&color) < 10)) )
+			
+			{
+			memcpy(base + cols, pjpginfo->buff + rows * pjpginfo->rowsize  + cols * 3, 3 );
+			}
+			
+			//printf("%d\n",cols);	
+		}
+		//printf("base add%d\n", plcdinfo->width);	
+		base += plcdinfo->width;
+	
+	
+	}
+
+	/*
+	 *backlog:返回值未完善
+	 */
 
 }
