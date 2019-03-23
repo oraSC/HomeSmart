@@ -147,7 +147,7 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
 
     pthread_create(&waitForCallMePthId, NULL, wait_for_callme, (void *)&ptharg);
 
-    //voice recv
+    // //voice recv
     pthread_t voiceRecvPthId;
     pthread_create(&voiceRecvPthId, NULL, &voiceRecvRoutine, NULL);
 
@@ -163,7 +163,7 @@ int chat(pLcdInfo_t plcdinfo, pPoint_t pts_point)
     JpgInfo_t jpginfo;
     while(1)
     {
-
+        sleep(1);
         if(chat_state == CHAT_STATE_RINGOFF)
         {
             //break;
@@ -583,7 +583,7 @@ static int ready_to_answer( pLcdInfo_t plcdinfo,
 }
 
 
-static int in_call_recv( pLcdInfo_t plcdinfo,
+int in_call_recv( pLcdInfo_t plcdinfo,
                     int socFd,
                     pJpgInfo_t ringOff_pjpginfo
                     )
@@ -592,18 +592,12 @@ static int in_call_recv( pLcdInfo_t plcdinfo,
     int ret;
 
     JpgInfo_t recv_jpginfo;
-    recv_jpginfo.width = A_FRAME_WIDTH;
-    recv_jpginfo.height = A_FRAME_HEIGHT;
-    recv_jpginfo.bicount = 24;
-    recv_jpginfo.rowsize = recv_jpginfo.width * recv_jpginfo.bicount / 8;
-    recv_jpginfo.buff = (unsigned char *)malloc(recv_jpginfo.height *recv_jpginfo.rowsize);
 
     //通话
     JpgData_t recv_jpgdata;
     while(1)
     {
-     
-        bzero(recv_jpginfo.buff, sizeof(recv_jpginfo.buff));
+    
         //接受图像
         /*
         *bug:偶尔出现丢失某一端，造成图像数据整体上移(单次发送超过20480 Byte)
@@ -644,6 +638,7 @@ static int in_call_recv( pLcdInfo_t plcdinfo,
 
         draw_pic_notAcolor(plcdinfo, RINGOFF_INCALL_x, RINGOFF_INCALL_y, ringOff_pjpginfo, 0x00000000);
 
+        free(recv_jpginfo.buff);
     }
 }
     
