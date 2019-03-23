@@ -24,6 +24,7 @@ typedef struct jpg_data
 
 
 pJpgInfo_t      decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *path);
+int			loadBmp2buffer(pJpgInfo_t pdst_jpinfo, char *path);
 bool 		decompress_jpg2bmp(char *src_path, char *dst_path);
 int 		decompress_jpgdata2buffer(unsigned char *pjpgdata, int datasize, pJpgInfo_t pdst_jpginfo);
 int			create_jpgbyjpgdata(unsigned char *path, pJpgData_t pjpgdata);

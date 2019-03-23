@@ -85,6 +85,48 @@ pJpgInfo_t decompress_jpg2buffer(pJpgInfo_t pdst_jpginfo, char *src_path)
 
 
 }
+
+int	loadBmp2buffer(pJpgInfo_t pdst_jpginfo, char *path)
+{
+
+	//打卡bmp文件
+	FILE *bmp_file = fopen(path, "r");
+	if(bmp_file == NULL)
+	{
+		perror("fail to open bmp");
+		return -1;
+	}
+
+	//读取头
+	BmpHead_t bmphead;
+	pBmpHead_t pbmphead = &bmphead;
+	
+	fread(pbmphead, 54, 1, bmp_file);
+	pdst_jpginfo->width = pbmphead->biWidth;
+	pdst_jpginfo->height = pbmphead->biHeight;
+	pdst_jpginfo->rowsize = pbmphead->biWidth * pbmphead->biBitCount / 8;
+	pdst_jpginfo->buff = (unsigned char  *)malloc(pbmphead->biHeight * pdst_jpginfo->rowsize);
+
+	//读取数据(考虑数据对齐)
+	unsigned char buff[pbmphead->bfSize - 54];
+	fread(buff, pbmphead->bfSize-54, 1, bmp_file);
+
+	//计算补齐后的一行数据大小
+	int real_rowsize = pbmphead->biWidth*3 + pbmphead->biWidth%4;
+
+
+	for(int col=0; col < pbmphead->biHeight-1; col++)
+	{
+		memcpy(pdst_jpginfo->buff + col * pdst_jpginfo->rowsize , buff + col * real_rowsize, pdst_jpginfo->rowsize);
+		
+	}	
+	
+	return 0;
+
+
+
+}
+
 int decompress_jpgdata2buffer(unsigned char *pjpgdata, int datasize, pJpgInfo_t pdst_jpginfo)
 {
 
