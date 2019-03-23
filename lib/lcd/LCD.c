@@ -144,7 +144,7 @@ bool draw_pic(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo)
 }
 
 /*
- *bug:适用于黑白图片
+ *仅是用于无损图片
  */
 bool draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo, int color)
 {
@@ -161,11 +161,12 @@ bool draw_pic_onlyAcolor(pLcdInfo_t plcdinfo, int x, int y, pJpgInfo_t pjpginfo,
 		
 		for(int cols = 0; cols < min_W - 1; cols++)
 		{
-			unsigned char *pR = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
-			unsigned char *pG = pR + 1;
-			unsigned char *pB = pR + 2;
-			if((*pR - ((0xFF<<0)&color) < 10) && (*pG - ((0xFF<<8)&color) < 10)  && (*pB - ((0xFF<<16)&color) < 10) )
-			
+			unsigned char *pB = pjpginfo->buff + rows * pjpginfo->rowsize + cols * 3;
+			unsigned char *pG = pB + 1;
+			unsigned char *pR = pB + 2;
+			int this_point_color = (*pR << 16) | (*pG << 8) | (*pB << 0);
+			//if((*pB - (0xFF& (color >> 0)) == 0) && (*pG - (0xFF&(color >> 8)) == 0)  && (*pR - (0xFF&(color >> 16)) == 0) )
+			if(this_point_color == color)
 			{
 			memcpy(base + cols, pjpginfo->buff + rows * pjpginfo->rowsize  + cols * 3, 3 );
 			}
