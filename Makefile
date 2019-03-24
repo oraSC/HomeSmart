@@ -1,8 +1,8 @@
-desktop:desktop.o desktop2.o JPG.o LCD.o BMP.o album.o music.o garage.o camera.o chat.o chat2.o font.o  mysocket.o serial.o cJSON.o 
-	arm-linux-gcc -o desktop desktop.o JPG.o LCD.o BMP.o album.o music.o  garage.o camera.o chat.o mysocket.o serial.o font.o cJSON.o -I./lib/jpg/libjpeg -L./lib/camera/ -L./lib/jpg/libjpeg -lapi_v4l2_arm1 -ljpeg -lpthread -lm
+desktop:desktop.o desktop2.o JPG.o LCD.o BMP.o album.o music.o garage.o camera.o chat.o chat2.o video_play.o font.o  mysocket.o serial.o cJSON.o 
+	arm-linux-gcc -o desktop desktop.o JPG.o LCD.o BMP.o album.o music.o  garage.o camera.o chat.o video_play.o mysocket.o serial.o font.o cJSON.o -I./lib/jpg/libjpeg -L./lib/camera/ -L./lib/jpg/libjpeg -lapi_v4l2_arm1 -ljpeg -lpthread -lm
 	arm-linux-gcc -o desktop2 desktop2.o JPG.o LCD.o BMP.o album.o music.o  garage.o camera.o chat2.o mysocket.o serial.o font.o cJSON.o -I./lib/jpg/libjpeg -L./lib/camera/ -L./lib/jpg/libjpeg -lapi_v4l2_arm1 -ljpeg -lpthread -lm
 	
-	rm desktop.o desktop2.o JPG.o LCD.o BMP.o album.o mysocket.o music.o garage.o camera.o chat.o chat2.o font.o serial.o cJSON.o
+	rm desktop.o desktop2.o JPG.o LCD.o BMP.o album.o mysocket.o music.o garage.o camera.o chat.o chat2.o video_play.o font.o serial.o cJSON.o
 	cp desktop desktop2 /mnt/hgfs/share/HomeSmart/
 desktop.o:desktop.c
 	arm-linux-gcc -c desktop.c
@@ -24,6 +24,8 @@ camera.o:./app/camera.c
 	arm-linux-gcc -c ./app/camera.c 
 chat.o:./app/chat.c
 	arm-linux-gcc -c ./app/chat.c
+video_play.o:./app/video_play.c
+	arm-linux-gcc -c ./app/video_play.c
 chat2.o:./app/chat2.c
 	arm-linux-gcc -c ./app/chat2.c
 mysocket.o:./lib/socket/mysocket.c

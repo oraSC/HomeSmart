@@ -23,21 +23,23 @@
 #include "./app/chat.h"
 #include "./lib/cJSON/cJSON.h"
 #include "./lib/font/font.h"
+#include "./app/video_play.h"
 
-
+//利用枚举代替
 #define ALBUM				1
 #define MUSIC				2
 #define	GARAGE				3
 #define CAMERA				4
 #define CHAT				5
-#define EXIT				6
+#define VIDEO_PlAY			6
+#define EXIT				7
 
 #define APP_START_x			30
 #define APP_WIDTH			150
 #define APP_HEIGHT			150
 #define APP_START_y			100			
 #define FIND_MAX_FD(x,y) 	(x)>(y)?(x):(y) 
-#define APP_NUM 			6
+#define APP_NUM 			7
 
 
 struct point 	ts_point;
@@ -87,11 +89,12 @@ int main()
 
 	int ret;
 
-	char app_icon_name[APP_NUM][30] = {	"./image/desktop/album.jpg", 
+	char app_icon_name[APP_NUM][40] = {	"./image/desktop/album.jpg", 
 										"./image/desktop/music.jpg", 
 										"./image/desktop/garage.jpg",
 										"./image/desktop/camera.jpg", 
 										"./image/desktop/chat.jpg",
+										"./image/desktop/video_play.jpg",
 										"./image/desktop/exit.jpg"};
 
 	//1.创建lcd
@@ -230,6 +233,12 @@ int main()
 			{
 				break;
 
+			}
+			else if(app_num == VIDEO_PlAY)
+			{
+				strcpy(state, "video_play");
+				video_play(plcdinfo, &ts_point);
+				strcpy(state, "desktop");
 			}
 			else if(app_num == CHAT)
 			{
