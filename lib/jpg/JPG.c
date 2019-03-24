@@ -114,10 +114,12 @@ int	loadBmp2buffer(pJpgInfo_t pdst_jpginfo, char *path)
 	//计算补齐后的一行数据大小
 	int real_rowsize = pbmphead->biWidth*3 + pbmphead->biWidth%4;
 
-
-	for(int col=0; col < pbmphead->biHeight-1; col++)
+	//读取像素数据，解决BMP倒序问题
+	for(int col= 0; col < pbmphead->biHeight - 1; col++)
 	{
-		memcpy(pdst_jpginfo->buff + col * pdst_jpginfo->rowsize , buff + col * real_rowsize, pdst_jpginfo->rowsize);
+		memcpy(	pdst_jpginfo->buff + col * pdst_jpginfo->rowsize ,	//dst
+				buff + pbmphead->bfSize - 54 - (col + 1) * real_rowsize,							//src
+				 pdst_jpginfo->rowsize);							//size
 		
 	}	
 	
